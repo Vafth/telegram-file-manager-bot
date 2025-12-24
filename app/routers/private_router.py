@@ -4,7 +4,7 @@ import json
 load_dotenv()
 
 from aiogram import F, Router, Bot
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import Message, ReplyKeyboardRemove, InlineKeyboardMarkup
 from aiogram.filters import CommandStart, Command, or_f
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
@@ -12,6 +12,7 @@ from aiogram.types import BufferedInputFile
 
 from sqlmodel import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db import *
@@ -30,7 +31,7 @@ class FileAddingProccedData(StatesGroup):
 # Generated Maps
 MEDIA_TYPE_ID_MAP = {item[0]: item[2] for item in MEDIA_CONFIG}
 
-def get_file_info_from_message(message: Message):
+async def get_file_info_from_message(message: Message):
     for shortcut, fullcut, db_id in MEDIA_CONFIG:
         media = getattr(message, fullcut, None)
         if media:
@@ -40,7 +41,7 @@ def get_file_info_from_message(message: Message):
     
     return None, None
 
-def get_file_info_by_shortcut(telegram_type):
+async def get_file_info_by_shortcut(telegram_type):
     info_map = {
         'gif': ('animation', os.getenv('THREAD_GIF')),
         'mp3': ('audio',     os.getenv('THREAD_AUDIO')),
@@ -50,6 +51,52 @@ def get_file_info_by_shortcut(telegram_type):
         'doc': ('document',  os.getenv('THREAD_DOCUMENT')),
     }
     return info_map.get(telegram_type)
+
+async def render_keyboard(session: AsyncSession, message: Message) -> tuple[int, InlineKeyboardMarkup]:
+
+    # Get current folder details
+    folder_and_subfolders_result = await session.execute(
+        select(Folder)
+        .options(
+            selectinload(Folder.child_folders)
+        )
+        .join(User, Folder.id == User.cur_folder_id)
+        .where(User.chat_id == message.chat.id)
+    )
+    current_folder = folder_and_subfolders_result.scalars().one()
+    
+    cur_folder_path = current_folder.full_path
+    cur_folder_id = current_folder.id
+    folders_in_folder = current_folder.child_folders
+    
+    # Get all file links in current folder with file details
+    file_links_result = await session.execute(
+        select(FileFolder, File, MediaType.short_version)
+        .join(File, FileFolder.file_id == File.id)
+        .join(MediaType, File.file_type == MediaType.id)
+        .where(FileFolder.folder_id == cur_folder_id)
+    )
+    file_data = file_links_result.all()
+    
+    files_in_folder: list[TrueFile] = []
+    
+    for link, file, short_version in file_data:
+        true_file = TrueFile(
+            id            = file.id,
+            file_name     = link.file_name,
+            tg_id         = file.tg_id,
+            backup_id     = file.backup_id,
+            short_version = short_version
+        )
+        files_in_folder.append(true_file)
+
+    keyboard = await build_folder(
+        folders_in_folder = folders_in_folder, 
+        files_in_folder   = files_in_folder, 
+        cur_folder_id     = cur_folder_id
+    )
+
+    return (cur_folder_path, keyboard)
 
 private_router = Router()
 private_router.message.filter(userIsAllowed(), isPrivate())
@@ -103,7 +150,7 @@ async def start_cmd(message: Message):
 async def uploading_via_private(message: Message, state: State):
 
     chat_id = message.chat.id
-    file_tg_id, file_shortcut = get_file_info_from_message(message)
+    file_tg_id, file_shortcut = await get_file_info_from_message(message)
     
     # If a file type doesn't match in the map 
     if not file_tg_id:
@@ -179,7 +226,7 @@ async def uploading_via_private_name_providing(message: Message, bot: Bot, state
         
         if file_id is None:
 
-            full_file_type, group_threat = get_file_info_by_shortcut(data["file_type"])
+            full_file_type, group_threat = await get_file_info_by_shortcut(data["file_type"])
             
             method_name = f"send_{full_file_type}"
             send_method = getattr(bot, method_name)
@@ -232,47 +279,7 @@ async def uploading_via_private_name_providing(message: Message, bot: Bot, state
         
         await session.commit()
     
-        # Get current folder details
-        folder_and_subfolders_result = await session.execute(
-            select(Folder)
-            .options(
-                selectinload(Folder.child_folders)
-            )
-            .join(User, Folder.id == User.cur_folder_id)
-            .where(User.chat_id == message.chat.id)
-        )
-        current_folder = folder_and_subfolders_result.scalars().one()
-        
-        cur_folder_path = current_folder.full_path
-        cur_folder_id = current_folder.id
-        folders_in_folder = current_folder.child_folders
-        
-        # Get all file links in current folder with file details
-        file_links_result = await session.execute(
-            select(FileFolder, File, MediaType.short_version)
-            .join(File, FileFolder.file_id == File.id)
-            .join(MediaType, File.file_type == MediaType.id)
-            .where(FileFolder.folder_id == cur_folder_id)
-        )
-        file_data = file_links_result.all()
-        
-        files_in_folder: list[TrueFile] = []
-        
-        for link, file, short_version in file_data:
-            true_file = TrueFile(
-                id            = file.id,
-                file_name     = link.file_name,
-                tg_id         = file.tg_id,
-                backup_id     = file.backup_id,
-                short_version = short_version
-            )
-            files_in_folder.append(true_file)
-
-    keyboard = await build_folder(
-        folders_in_folder = folders_in_folder, 
-        files_in_folder   = files_in_folder, 
-        cur_folder_id     = cur_folder_id
-    )
+    cur_folder_path, keyboard = await render_keyboard(session=session, message=message)
     
     await message.reply(
         f"File has been added to the cur folder\nFolder {cur_folder_path}",
@@ -284,49 +291,8 @@ async def uploading_via_private_name_providing(message: Message, bot: Bot, state
 async def get_folder_tree_cmd(message: Message, bot: Bot):
     
     async with get_session() as session:
-
-        # Get current folder details
-        folder_and_subfolders_result = await session.execute(
-            select(Folder)
-            .options(
-                selectinload(Folder.child_folders)
-            )
-            .join(User, Folder.id == User.cur_folder_id)
-            .where(User.chat_id == message.chat.id)
-        )
-        current_folder = folder_and_subfolders_result.scalars().one()
+        cur_folder_path, keyboard = await render_keyboard(session=session, message=message)    
         
-        cur_folder_path = current_folder.full_path
-        cur_folder_id = current_folder.id
-        folders_in_folder = current_folder.child_folders
-        
-        # Get all file links in current folder with file details
-        file_links_result = await session.execute(
-            select(FileFolder, File, MediaType.short_version)
-            .join(File, FileFolder.file_id == File.id)
-            .join(MediaType, File.file_type == MediaType.id)
-            .where(FileFolder.folder_id == cur_folder_id)
-        )
-        file_data = file_links_result.all()
-        
-        files_in_folder: list[TrueFile] = []
-        
-        for link, file, short_version in file_data:
-            true_file = TrueFile(
-                id            = file.id,
-                file_name     = link.file_name,
-                tg_id         = file.tg_id,
-                backup_id     = file.backup_id,
-                short_version = short_version
-            )
-            files_in_folder.append(true_file)
-
-    keyboard = await build_folder(
-        folders_in_folder = folders_in_folder, 
-        files_in_folder   = files_in_folder, 
-        cur_folder_id     = cur_folder_id
-    )
-    
     await message.reply(
         f"Folder {cur_folder_path}", 
         reply_markup=keyboard)

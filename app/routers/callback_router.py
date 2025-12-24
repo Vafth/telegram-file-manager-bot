@@ -1,15 +1,15 @@
 import json
 
 from aiogram import F, Router, Bot
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 from sqlmodel import select, update, delete
 from sqlalchemy.orm import selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import *
-
 from ..keyboards.inline_kb import build_folder, delete_file_button, confirm_folder_deleting_button
 
 callback_router = Router()
@@ -19,6 +19,48 @@ class FolderDeleting(StatesGroup):
     par_folder_id = State()
     
 SHORTCUT_TO_TYPE_BY_ID = {item[2]: item[1] for item in MEDIA_CONFIG}
+
+async def render_keyboard_by_folder_id(session: AsyncSession, folder_id: int) -> tuple[int, InlineKeyboardMarkup]:
+
+    # Get folder with its subfolders
+    folder_result = await session.execute(
+        select(Folder) 
+        .options(selectinload(Folder.child_folders))
+        .where(Folder.id == folder_id)
+    )
+    folder = folder_result.scalars().one_or_none()
+    
+    folder_path = folder.full_path
+    folders_in_folder = folder.child_folders
+
+    # Get all file links in current folder with file details
+    file_links_result = await session.execute(
+        select(FileFolder, File, MediaType.short_version)
+        .join(File, FileFolder.file_id == File.id)
+        .join(MediaType, File.file_type == MediaType.id)
+        .where(FileFolder.folder_id == folder_id)
+    )
+    file_data = file_links_result.all()
+    
+    files_in_par_folder: list[TrueFile] = []
+    
+    for link, file, short_version in file_data:
+        true_file = TrueFile(
+            id            = file.id,
+            file_name     = link.file_name,
+            tg_id         = file.tg_id,
+            backup_id     = file.backup_id,
+            short_version = short_version
+        )
+        files_in_par_folder.append(true_file)
+
+    keyboard = await build_folder(
+        folders_in_folder = folders_in_folder, 
+        files_in_folder   = files_in_par_folder, 
+        cur_folder_id     = folder_id)
+    
+    return (folder_path, keyboard)
+
 
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "g'))
 async def handle_get_media(callback: CallbackQuery, bot: Bot):
@@ -91,16 +133,8 @@ async def handle_go_downer_folder(callback: CallbackQuery, bot: Bot):
     cur_folder_id = data.get("f")
 
     async with get_session() as session:
-
-        # Get folder with eager-loaded subfolders
-        folder_result = await session.execute(
-            select(Folder)
-            .options(selectinload(Folder.child_folders))
-            .where(Folder.id == cur_folder_id)
-        )
-        cur_folder = folder_result.scalars().one()
-
-        # Get user separately
+    
+        # Get user
         user_result = await session.execute(
             select(User)
             .where(User.chat_id == callback.message.chat.id)
@@ -111,42 +145,15 @@ async def handle_go_downer_folder(callback: CallbackQuery, bot: Bot):
             await callback.answer("User not found", show_alert=True)
             return
 
-        cur_folder_path = cur_folder.full_path
-        folders_in_folder = cur_folder.child_folders
-        
         cur_user.cur_folder_id = cur_folder_id
-        
         await session.commit()
+        
+        cur_folder_path, keyboard = await render_keyboard_by_folder_id(session=session, folder_id=cur_folder_id)
 
-        result = await session.execute(
-            select(FileFolder, File, MediaType.short_version)
-            .join(File, File.id == FileFolder.file_id)
-            .join(MediaType, MediaType.id == File.file_type)
-            .where(FileFolder.folder_id == cur_folder_id)
-        )
-        file_data = result.all()
-        
-        files_in_folder: list[TrueFile] = []
-        
-        for link, file, short_version in file_data:    
-            true_file = TrueFile(
-                id            = file.id,
-                file_name     = link.file_name,
-                tg_id         = file.tg_id,
-                backup_id     = file.backup_id,
-                short_version = short_version
-            )
-            files_in_folder.append(true_file)
-            
-        keyboard = await build_folder(
-            folders_in_folder = folders_in_folder, 
-            files_in_folder   = files_in_folder, 
-            cur_folder_id     = cur_folder_id)
-        
-        await callback.message.edit_text(f"Folder {cur_folder_path}", 
-                        reply_markup=keyboard)
+    await callback.message.edit_text(f"Folder {cur_folder_path}", 
+                    reply_markup=keyboard)
 
-        await callback.answer("Folder changed!")
+    await callback.answer("Folder changed!")
         
 
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "u"'))
@@ -155,28 +162,17 @@ async def handle_go_to_upper_folder(callback: CallbackQuery, bot: Bot):
     cur_folder_id = data.get("f")
     
     async with get_session() as session:
-        cur_folder_result = await session.execute(
+        par_folder_result = await session.execute(
             select(Folder.parent_folder_id)
             .where(Folder.id == cur_folder_id)
         )
-        par_folder_id = cur_folder_result.scalars().one_or_none()
+        par_folder_id = par_folder_result.scalars().one_or_none()
         
         # Check if we're at root (no parent)
         if par_folder_id is None:
             await callback.answer("Can't go up: Current folder is the root", show_alert=True)
             return
-
-        # Get folder with its subfolders
-        folder_result = await session.execute(
-            select(Folder) 
-            .options(selectinload(Folder.child_folders))
-            .where(Folder.id == par_folder_id)
-        )
-        par_folder = folder_result.scalars().one_or_none()
-        
-        par_folder_path = par_folder.full_path
-        folders_in_par_folder = par_folder.child_folders
-        
+    
         # Get user
         user_result = await session.execute(
             select(User)
@@ -191,40 +187,12 @@ async def handle_go_to_upper_folder(callback: CallbackQuery, bot: Bot):
         cur_user.cur_folder_id = par_folder_id
         await session.commit()
         
-        print(f"User: {cur_user}"
-              f"\nCurr Folder ID: {cur_folder_id}"
-             )
-
-        # Get all file links in current folder with file details
-        file_links_result = await session.execute(
-            select(FileFolder, File, MediaType.short_version)
-            .join(File, FileFolder.file_id == File.id)
-            .join(MediaType, File.file_type == MediaType.id)
-            .where(FileFolder.folder_id == par_folder_id)
-        )
-        file_data = file_links_result.all()
+        par_folder_path, keyboard = await render_keyboard_by_folder_id(session=session, folder_id=par_folder_id)
         
-        files_in_par_folder: list[TrueFile] = []
-        
-        for link, file, short_version in file_data:
-            true_file = TrueFile(
-                id            = file.id,
-                file_name     = link.file_name,
-                tg_id         = file.tg_id,
-                backup_id     = file.backup_id,
-                short_version = short_version
-            )
-            files_in_par_folder.append(true_file)
+    await callback.message.edit_text(f"Folder {par_folder_path}", 
+                    reply_markup=keyboard)
 
-        keyboard = await build_folder(
-            folders_in_folder = folders_in_par_folder, 
-            files_in_folder   = files_in_par_folder, 
-            cur_folder_id     = par_folder_id)
-        
-        await callback.message.edit_text(f"Folder {par_folder_path}", 
-                        reply_markup=keyboard)
-
-        await callback.answer("Folder changed!")
+    await callback.answer("Folder changed!")
         
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "dl'))
 async def handle_delete_folder_confirm(callback: CallbackQuery, bot: Bot, state: State):
@@ -316,49 +284,8 @@ async def handle_delete_folder(callback: CallbackQuery, bot: Bot, state: State):
             
             cur_folder_id = par_folder_id 
 
-        # Now we have to render current folder - based on the cur_folder_id variable
-        # if user have confirmed deletion of the cur_folder - upper code have been exetuted and variable cur_folder_id now is actually a par_folder_id
-        # if not - cur_folder_id is still cur_folder_id
-        # in the future i should cached marckups in those situation instead of rerendering it every time, but for now i think it's fine
-        
-        # Get current folder details
-        folder_result = await session.execute(
-            select(Folder) 
-            .options(selectinload(Folder.child_folders))
-            .where(Folder.id == cur_folder_id)
-        )
-        cur_folder = folder_result.scalars().one()
-        
-        cur_folder_path = cur_folder.full_path
-        folders_in_folder = cur_folder.child_folders
-        
-        # Get file details in the current folder
-        file_links_result = await session.execute(
-            select(FileFolder, File, MediaType.short_version)
-            .join(File, FileFolder.file_id == File.id)
-            .join(MediaType, File.file_type == MediaType.id)
-            .where(FileFolder.folder_id == cur_folder_id)
-        )
-        file_data = file_links_result.all()
-        
-        files_in_folder: list[TrueFile] = []
-        
-        for link, file, short_version in file_data:
-            true_file = TrueFile(
-                id            = file.id,
-                file_name     = link.file_name,
-                tg_id         = file.tg_id,
-                backup_id     = file.backup_id,
-                short_version = short_version
-            )
-            files_in_folder.append(true_file)
+    cur_folder_path, keyboard = await render_keyboard_by_folder_id(session=session, folder_id=cur_folder_id)
 
-    keyboard = await build_folder(
-        folders_in_folder = folders_in_folder, 
-        files_in_folder   = files_in_folder, 
-        cur_folder_id     = cur_folder_id
-    )
-    
     if confirmation:
         await callback.answer(f"Folder deleted!", show_alert=True)
     

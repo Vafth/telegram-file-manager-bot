@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from ..keyboards.inline_kb import build_folder
 from ..db import *
-
+from ..routers.private_router import render_keyboard
 
 add_folder_router = Router()
 
@@ -69,51 +69,24 @@ async def providing_folder_name(message: Message, state: State):
     async with get_session() as session:
         session.add(new_folder)
         await session.commit()
-        
-        # Get current folder details
-        folder_and_subfolders_result = await session.execute(
-            select(Folder)
-            .options(
-                selectinload(Folder.child_folders)
-            )
-            .join(User, Folder.id == User.cur_folder_id)
+        # Get user
+        user_result = await session.execute(
+            select(User)
             .where(User.chat_id == message.chat.id)
         )
-        current_folder = folder_and_subfolders_result.scalars().one()
-        
-        cur_folder_path = current_folder.full_path
-        cur_folder_id = current_folder.id
-        folders_in_folder = current_folder.child_folders
-        
-        # Get all file links in current folder with file details
-        file_links_result = await session.execute(
-            select(FileFolder, File, MediaType.short_version)
-            .join(File, FileFolder.file_id == File.id)
-            .join(MediaType, File.file_type == MediaType.id)
-            .where(FileFolder.folder_id == cur_folder_id)
-        )
-        file_data = file_links_result.all()
-        
-        files_in_folder: list[TrueFile] = []
-        
-        for link, file, short_version in file_data:
-            true_file = TrueFile(
-                id=file.id,
-                file_name=link.file_name,
-                tg_id=file.tg_id,
-                backup_id=file.backup_id,
-                short_version=short_version
-            )
-            files_in_folder.append(true_file)
+        cur_user = user_result.scalars().one_or_none()
 
-    keyboard = await build_folder(
-        folders_in_folder = folders_in_folder, 
-        files_in_folder   = files_in_folder, 
-        cur_folder_id     = cur_folder_id
-    )
+        if not cur_user:
+            await message.answer("User not found", show_alert=True)
+            return
+
+        cur_user.cur_folder_id = new_folder.id
+        await session.commit()
+
+        cur_folder_path, keyboard = await render_keyboard(session=session, message=message)
     
     await message.reply(
-        f"New Folder {data['fd_path']}{data['fd_name']}/",
+        f"New Folder {cur_folder_path}",
         reply_markup=keyboard)
 
     await state.clear()
