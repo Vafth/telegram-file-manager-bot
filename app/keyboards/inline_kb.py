@@ -1,0 +1,113 @@
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import json
+from ..db import *
+
+builder = InlineKeyboardBuilder()
+
+async def build_folder(folders_in_folder: list[Folder], files_in_folder: list[TrueFile], cur_folder_id: int, i: int = 2): 
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+    row: list[InlineKeyboardButton] = []
+    
+    label = "../"
+    callback_data = json.dumps({"a": "u", "f": cur_folder_id}) 
+    
+    button = InlineKeyboardButton(text=label, callback_data=callback_data)
+    keyboard.inline_keyboard.append([button])
+
+    for i, folder in enumerate(folders_in_folder):
+        label = f"/{folder.folder_name}/"
+        callback_data = json.dumps({"a": "d", "f": folder.id})
+
+        button = InlineKeyboardButton(text=label, callback_data=callback_data)
+        row.append(button)
+        
+        if (i + 1) % 2 == 0 or i == len(folders_in_folder) - 1:
+            keyboard.inline_keyboard.append(row)
+            row = []
+
+    for i, file in enumerate(files_in_folder):
+        label = f"/{file.file_name}.{file.short_version}"
+        callback_data = json.dumps({"a": "g", "f": file.id, "o": cur_folder_id})
+
+        button = InlineKeyboardButton(text=label, callback_data=callback_data)
+        row.append(button)
+        
+        if (i + 1) % 2 == 0 or i == len(files_in_folder) - 1:
+            keyboard.inline_keyboard.append(row)
+            row = []
+
+    label = "Add folder"
+    callback_data = json.dumps({"a": "add_fd", "fd_id": cur_folder_id})
+
+    button = InlineKeyboardButton(text=label, callback_data=callback_data)
+    keyboard.inline_keyboard.append([button])
+
+    label = "Delete Folder"
+    callback_data = json.dumps({"a": "dl", "f": cur_folder_id})
+
+    button = InlineKeyboardButton(text=label, callback_data=callback_data)
+    keyboard.inline_keyboard.append([button])
+
+    return keyboard
+
+
+async def delete_file_button(folder_id, file_id): 
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+
+    label = "Delete File"
+    callback_data = json.dumps({"a": "df", "f": file_id, "o": folder_id})
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=label, callback_data=callback_data)]
+    ])
+    
+    return keyboard
+
+async def confirm_folder_deleting_button(folder_id): 
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+    
+    label = "Yes, Delete that folder"
+    callback_data = json.dumps({"a": "cd", "c": True, "f": folder_id}) # confirm folder deleting
+    
+    button = InlineKeyboardButton(text=label, callback_data=callback_data)
+    keyboard.inline_keyboard.append([button])
+    
+    label = "No, Cancel"
+    callback_data = json.dumps({"a": "cd", "c": False, "f": folder_id}) # unconfirm folder deleting 
+    
+    button = InlineKeyboardButton(text=label, callback_data=callback_data)
+    keyboard.inline_keyboard.append([button])
+
+    return keyboard
+
+
+async def build_nested_folders(folders_in_folder: list[Folder], parrent_folder_id: int, i: int = 1): 
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+
+    for i, folder in enumerate(folders_in_folder):
+        label = f"/{folder.folder_name}/.."
+        callback_data = json.dumps({"a": "get_folder", "folder_id": folder.id})
+
+        button = InlineKeyboardButton(text=label, callback_data=callback_data)
+        keyboard.inline_keyboard.append([button])
+            
+    row: list[InlineKeyboardButton] = []
+    label = "Go Back"
+    callback_data = json.dumps({"a": "rerender_inline_nested_folders", "parrent_folder_id": parrent_folder_id, })
+    button = InlineKeyboardButton(text=label, callback_data=callback_data)
+    row.append(button)
+    label = "Cancel"
+    callback_data = json.dumps({"a": "cancel_choising_folder_process"})
+    button = InlineKeyboardButton(text=label, callback_data=callback_data)
+    row.append(button)
+    label = "Skip"
+    callback_data = json.dumps({"a": "skip_choising_folder_process"})
+    button = InlineKeyboardButton(text=label, callback_data=callback_data)
+    row.append(button)
+    
+    keyboard.inline_keyboard.append(row)
+    row = []
+
+    return keyboard
+    
