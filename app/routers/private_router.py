@@ -1,22 +1,18 @@
 from dotenv import load_dotenv
 import os
-import json
+from typing import Optional
 load_dotenv()
 
 from aiogram import F, Router, Bot
-from aiogram.types import Message, ReplyKeyboardRemove, InlineKeyboardMarkup
+from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.filters import CommandStart, Command, or_f
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile
 
 from sqlmodel import select
-from sqlalchemy.orm import selectinload
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db import *
-from ..keyboards.inline_kb import build_folder
+from app.common import render_keyboard
 
 class FileAddingProccedData(StatesGroup):
     tg_file_id        = State()
@@ -51,52 +47,6 @@ async def get_file_info_by_shortcut(telegram_type):
         'doc': ('document',  os.getenv('THREAD_DOCUMENT')),
     }
     return info_map.get(telegram_type)
-
-async def render_keyboard(session: AsyncSession, message: Message) -> tuple[int, InlineKeyboardMarkup]:
-
-    # Get current folder details
-    folder_and_subfolders_result = await session.execute(
-        select(Folder)
-        .options(
-            selectinload(Folder.child_folders)
-        )
-        .join(User, Folder.id == User.cur_folder_id)
-        .where(User.chat_id == message.chat.id)
-    )
-    current_folder = folder_and_subfolders_result.scalars().one()
-    
-    cur_folder_path = current_folder.full_path
-    cur_folder_id = current_folder.id
-    folders_in_folder = current_folder.child_folders
-    
-    # Get all file links in current folder with file details
-    file_links_result = await session.execute(
-        select(FileFolder, File, MediaType.short_version)
-        .join(File, FileFolder.file_id == File.id)
-        .join(MediaType, File.file_type == MediaType.id)
-        .where(FileFolder.folder_id == cur_folder_id)
-    )
-    file_data = file_links_result.all()
-    
-    files_in_folder: list[TrueFile] = []
-    
-    for link, file, short_version in file_data:
-        true_file = TrueFile(
-            id            = file.id,
-            file_name     = link.file_name,
-            tg_id         = file.tg_id,
-            backup_id     = file.backup_id,
-            short_version = short_version
-        )
-        files_in_folder.append(true_file)
-
-    keyboard = await build_folder(
-        folders_in_folder = folders_in_folder, 
-        files_in_folder   = files_in_folder, 
-        cur_folder_id     = cur_folder_id
-    )
-
-    return (cur_folder_path, keyboard)
 
 private_router = Router()
 private_router.message.filter(userIsAllowed(), isPrivate())
@@ -279,7 +229,7 @@ async def uploading_via_private_name_providing(message: Message, bot: Bot, state
         
         await session.commit()
     
-    cur_folder_path, keyboard = await render_keyboard(session=session, message=message)
+    cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=message.chat.id)
     
     await message.reply(
         f"File has been added to the cur folder\nFolder {cur_folder_path}",
@@ -291,7 +241,7 @@ async def uploading_via_private_name_providing(message: Message, bot: Bot, state
 async def get_folder_tree_cmd(message: Message, bot: Bot):
     
     async with get_session() as session:
-        cur_folder_path, keyboard = await render_keyboard(session=session, message=message)    
+        cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=message.chat.id)    
         
     await message.reply(
         f"Folder {cur_folder_path}", 

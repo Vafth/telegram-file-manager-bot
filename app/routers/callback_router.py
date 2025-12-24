@@ -1,16 +1,15 @@
 import json
 
 from aiogram import F, Router, Bot
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup
+from aiogram.types import CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.fsm.context import FSMContext
 
 from sqlmodel import select, update, delete
 from sqlalchemy.orm import selectinload
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import *
-from ..keyboards.inline_kb import build_folder, delete_file_button, confirm_folder_deleting_button
+from ..keyboards.inline_kb import delete_file_button, confirm_folder_deleting_button
+from app.common import render_keyboard
 
 callback_router = Router()
 
@@ -19,48 +18,6 @@ class FolderDeleting(StatesGroup):
     par_folder_id = State()
     
 SHORTCUT_TO_TYPE_BY_ID = {item[2]: item[1] for item in MEDIA_CONFIG}
-
-async def render_keyboard_by_folder_id(session: AsyncSession, folder_id: int) -> tuple[int, InlineKeyboardMarkup]:
-
-    # Get folder with its subfolders
-    folder_result = await session.execute(
-        select(Folder) 
-        .options(selectinload(Folder.child_folders))
-        .where(Folder.id == folder_id)
-    )
-    folder = folder_result.scalars().one_or_none()
-    
-    folder_path = folder.full_path
-    folders_in_folder = folder.child_folders
-
-    # Get all file links in current folder with file details
-    file_links_result = await session.execute(
-        select(FileFolder, File, MediaType.short_version)
-        .join(File, FileFolder.file_id == File.id)
-        .join(MediaType, File.file_type == MediaType.id)
-        .where(FileFolder.folder_id == folder_id)
-    )
-    file_data = file_links_result.all()
-    
-    files_in_par_folder: list[TrueFile] = []
-    
-    for link, file, short_version in file_data:
-        true_file = TrueFile(
-            id            = file.id,
-            file_name     = link.file_name,
-            tg_id         = file.tg_id,
-            backup_id     = file.backup_id,
-            short_version = short_version
-        )
-        files_in_par_folder.append(true_file)
-
-    keyboard = await build_folder(
-        folders_in_folder = folders_in_folder, 
-        files_in_folder   = files_in_par_folder, 
-        cur_folder_id     = folder_id)
-    
-    return (folder_path, keyboard)
-
 
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "g'))
 async def handle_get_media(callback: CallbackQuery, bot: Bot):
@@ -148,7 +105,7 @@ async def handle_go_downer_folder(callback: CallbackQuery, bot: Bot):
         cur_user.cur_folder_id = cur_folder_id
         await session.commit()
         
-        cur_folder_path, keyboard = await render_keyboard_by_folder_id(session=session, folder_id=cur_folder_id)
+        cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
 
     await callback.message.edit_text(f"Folder {cur_folder_path}", 
                     reply_markup=keyboard)
@@ -187,7 +144,7 @@ async def handle_go_to_upper_folder(callback: CallbackQuery, bot: Bot):
         cur_user.cur_folder_id = par_folder_id
         await session.commit()
         
-        par_folder_path, keyboard = await render_keyboard_by_folder_id(session=session, folder_id=par_folder_id)
+        par_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
         
     await callback.message.edit_text(f"Folder {par_folder_path}", 
                     reply_markup=keyboard)
@@ -284,7 +241,7 @@ async def handle_delete_folder(callback: CallbackQuery, bot: Bot, state: State):
             
             cur_folder_id = par_folder_id 
 
-    cur_folder_path, keyboard = await render_keyboard_by_folder_id(session=session, folder_id=cur_folder_id)
+    cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
 
     if confirmation:
         await callback.answer(f"Folder deleted!", show_alert=True)

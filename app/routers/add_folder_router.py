@@ -1,16 +1,13 @@
 import json
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.state import StatesGroup, State
 
 from sqlmodel import select
-from sqlalchemy.orm import selectinload
 
-
-from ..keyboards.inline_kb import build_folder
 from ..db import *
-from ..routers.private_router import render_keyboard
+from app.common import render_keyboard
 
 add_folder_router = Router()
 
@@ -83,7 +80,7 @@ async def providing_folder_name(message: Message, state: State):
         cur_user.cur_folder_id = new_folder.id
         await session.commit()
 
-        cur_folder_path, keyboard = await render_keyboard(session=session, message=message)
+        cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=message.chat.id)
     
     await message.reply(
         f"New Folder {cur_folder_path}",
