@@ -8,7 +8,6 @@ admin_router = Router()
 
 @admin_router.message(Command("my_chat_id"))
 async def get_my_chat_id(message: Message):
-    print(message)
     await message.answer(
        f"Your chat id: {message.chat.id}"
     )

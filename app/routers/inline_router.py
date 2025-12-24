@@ -43,8 +43,6 @@ async def handle_inline_get_media(inline_query: InlineQuery):
     else:
         search_type='folders_list'
     
-    print(queries)
-    
     async with get_session() as session:
 
         user_result = await session.execute( 

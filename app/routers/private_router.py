@@ -9,9 +9,11 @@ from aiogram.filters import CommandStart, Command, or_f
 from aiogram.fsm.state import StatesGroup, State
 
 from sqlmodel import select
+from sqlalchemy.orm import selectinload
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db import *
+from ..keyboards.inline_kb import confirm_folder_deleting_button
 from app.common import render_keyboard
 
 class FileAddingProccedData(StatesGroup):
@@ -23,6 +25,10 @@ class FileAddingProccedData(StatesGroup):
     file_type_id      = State()
     user_id           = State()
     current_folder_id = State()
+
+class FolderDeleting(StatesGroup):
+    cur_folder_id = State()
+    par_folder_id = State()
 
 # Generated Maps
 MEDIA_TYPE_ID_MAP = {item[0]: item[2] for item in MEDIA_CONFIG}

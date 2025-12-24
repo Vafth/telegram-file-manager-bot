@@ -3,8 +3,8 @@ import json
 import asyncio
 from dotenv import load_dotenv
 
-from aiogram import Bot, Dispatcher, Router
-from aiogram.types import BotCommand, BotCommandScopeDefault
+from aiogram import Bot, Dispatcher
+from aiogram.types import BotCommand, BotCommandScopeChat
 
 # Comment out later
 from .routers import *
@@ -27,10 +27,13 @@ async def start_bot(bot: Bot):
     commands = [
         BotCommand(command="start", description="Start Command"),
         BotCommand(command="fs", description="Open File System"),
+        BotCommand(command="rm", description="Remove current folder - all files would be moved to the upper folder"),
+        BotCommand(command="rn", description="Rename current folder"),
+        BotCommand(command="mv", description="Move all files to the specified folder using the provided full path"),
     ]
 
-    #await bot.delete_my_commands(scope=bot.my_admin_list[0])
-    #await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
+    #await bot.delete_my_commands(scope=BotCommandScopeChat(chat_id=bot.my_admin_list[0]))
+    #await bot.set_my_commands(commands, scope=BotCommandScopeChat(chat_id=bot.my_admin_list[0]))
     
     print("Bot started and Menu Commands updated.")
     await create_db_and_tables()
@@ -49,17 +52,31 @@ dp.include_router(group_router)
 dp.include_router(inline_router)
 dp.include_router(callback_router)
 dp.include_router(add_folder_router)
+dp.include_router(remove_folder_router)
+dp.include_router(rename_folder_router)
+dp.include_router(move_router)
 #dp.include_router(admin_router)
 
 async def main():
     dp.startup.register(start_bot)
     dp.shutdown.register(stop_bot)
     await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot, allowed_updates=ALLOWED_UPDATES)
+    
+    try:
+        await dp.start_polling(bot, allowed_updates=ALLOWED_UPDATES)
+    
+    finally:
+        await bot.session.close()
+        
+        # Give handlers time to finish
+        await asyncio.sleep(1)
+        
+        # Now dispose the engine
+        await engine.dispose()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("Stopping")
+        print("Stopping")    
     

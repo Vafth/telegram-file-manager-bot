@@ -8,7 +8,7 @@ from sqlmodel import select, update, delete
 from sqlalchemy.orm import selectinload
 
 from ..db import *
-from ..keyboards.inline_kb import delete_file_button, confirm_folder_deleting_button
+from ..keyboards.inline_kb import delete_file_button
 from app.common import render_keyboard
 
 callback_router = Router()
@@ -21,8 +21,8 @@ SHORTCUT_TO_TYPE_BY_ID = {item[2]: item[1] for item in MEDIA_CONFIG}
 
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "g'))
 async def handle_get_media(callback: CallbackQuery, bot: Bot):
-    data      = json.loads(callback.data)
-    file_id   = data.get("f")
+    data          = json.loads(callback.data)
+    file_id       = data.get("f")
     cur_folder_id = data.get("o")
 
     if not file_id:
@@ -40,13 +40,13 @@ async def handle_get_media(callback: CallbackQuery, bot: Bot):
             return
             
         keyboard = await delete_file_button(
-            file_id=file_id,
-            folder_id=cur_folder_id
+            file_id   = file_id,
+            folder_id = cur_folder_id
         )
         
         # Send media based on type
         full_file_type = SHORTCUT_TO_TYPE_BY_ID[file.file_type]
-        send_method = getattr(bot, f"send_{full_file_type}")
+        send_method    = getattr(bot, f"send_{full_file_type}")
 
         await send_method(
                 chat_id=callback.message.chat.id,
@@ -58,9 +58,10 @@ async def handle_get_media(callback: CallbackQuery, bot: Bot):
 
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "df'))
 async def handle_delete_media(callback: CallbackQuery, bot: Bot):
-    data = json.loads(callback.data)
-    file_id = data.get("f")
+    data      = json.loads(callback.data)
+    file_id   = data.get("f")
     folder_id = data.get("o")
+    
     if not file_id:
         await callback.answer("Invalid file.", show_alert=True)
         return
@@ -86,7 +87,7 @@ async def handle_delete_media(callback: CallbackQuery, bot: Bot):
 
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "d"'))
 async def handle_go_downer_folder(callback: CallbackQuery, bot: Bot):
-    data = json.loads(callback.data)
+    data          = json.loads(callback.data)
     cur_folder_id = data.get("f")
 
     async with get_session() as session:
@@ -107,15 +108,17 @@ async def handle_go_downer_folder(callback: CallbackQuery, bot: Bot):
         
         cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
 
-    await callback.message.edit_text(f"Folder {cur_folder_path}", 
-                    reply_markup=keyboard)
+    await callback.message.edit_text(
+        f"Folder {cur_folder_path}", 
+        reply_markup=keyboard
+    )
 
     await callback.answer("Folder changed!")
         
 
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "u"'))
 async def handle_go_to_upper_folder(callback: CallbackQuery, bot: Bot):
-    data = json.loads(callback.data)
+    data          = json.loads(callback.data)
     cur_folder_id = data.get("f")
     
     async with get_session() as session:
@@ -151,104 +154,3 @@ async def handle_go_to_upper_folder(callback: CallbackQuery, bot: Bot):
 
     await callback.answer("Folder changed!")
         
-@callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "dl'))
-async def handle_delete_folder_confirm(callback: CallbackQuery, bot: Bot, state: State):
-    data = json.loads(callback.data)
-    cur_folder_id = data.get("f")
-
-    if not cur_folder_id:
-        await callback.answer("Invalid folder.", show_alert=True)
-        return
-    
-    async with get_session() as session:
-        folder_result = await session.execute(
-            select(Folder) 
-            .options(selectinload(Folder.child_folders))
-            .where(Folder.id == cur_folder_id)
-        )
-        folder = folder_result.scalars().one_or_none()
-
-    if not folder:
-        await callback.answer("Folder not found", show_alert=True)
-        return
-    
-    if not folder.parent_folder_id:
-        await callback.answer("Can't delete the root folder", show_alert=True)
-        return
-    
-    if folder.child_folders:
-        await callback.answer("Can't delete folder: child folders exist", show_alert=True)
-        return
-
-    folder_path = folder.full_path
-    
-    keyboard = await confirm_folder_deleting_button(folder_id=cur_folder_id)
-    
-    await callback.message.edit_text(
-        f"Confirm deleting folder '{folder_path}'\n"
-        f"All remainig files will be moved to the parent folder", 
-        reply_markup=keyboard)
-
-    await callback.answer("Confirm check!")
-    await state.update_data(
-        cur_folder_id = cur_folder_id,
-        par_folder_id = folder.parent_folder_id
-        )    
-    await state.set_state(FolderDeleting.par_folder_id) 
-
-@callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "cd'), FolderDeleting.par_folder_id)
-async def handle_delete_folder(callback: CallbackQuery, bot: Bot, state: State):
-    data = json.loads(callback.data)
-    confirmation = data.get("c")
-    
-    state_data = await state.get_data()
-    cur_folder_id = state_data["cur_folder_id"]
-    par_folder_id = state_data["par_folder_id"]
-    
-    moved_count = 0
-
-    async with get_session() as session:
-        
-        if confirmation:
-            # Update FileFolder links
-            update_links_result = await session.execute(
-                update(FileFolder)
-                .where(FileFolder.folder_id == cur_folder_id)
-                .values(folder_id=par_folder_id)
-                .returning(FileFolder.file_id)
-            )
-            moved_files = update_links_result.scalars().all()
-            moved_count = len(moved_files)
-
-            print(f"Moved {moved_count} files from {cur_folder_id} to {par_folder_id}")
-
-            # Now delete child
-            await session.execute(
-                delete(Folder)
-                .where(Folder.id == cur_folder_id)
-            )
-            
-            print(f"Successfully deleted folder {cur_folder_id}")
-            
-            # Update User's current folder
-            await session.execute(
-                update(User)
-                .where(User.chat_id == callback.message.chat.id)
-                .values(cur_folder_id = par_folder_id)
-            )
-            
-            await session.commit()
-            
-            cur_folder_id = par_folder_id 
-
-    cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
-
-    if confirmation:
-        await callback.answer(f"Folder deleted!", show_alert=True)
-    
-    await callback.message.edit_text(
-        f"Folder {cur_folder_path}", 
-        reply_markup=keyboard)
-    
-    await state.clear()
-    return
