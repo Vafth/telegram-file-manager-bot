@@ -38,12 +38,12 @@ async def create_new_user_with_folder(session: AsyncSession, user_chat_id: int, 
 
     return cur_user_check
 
-async def  check_if_file_folder_link_exist(
+async def check_if_file_folder_link_exist(
           session: AsyncSession,
           chat_id: int,
           file_tg_id: str,
           file_shortcut: str
-          ) -> tuple[bool,int, int, int,]:
+          ) -> tuple[bool,int, int, Optional[int]]:
 
         # looking for a current user's folder id 
         cur_user_id_and_folder_result = await session.execute(
@@ -71,6 +71,7 @@ async def  check_if_file_folder_link_exist(
         
         if file:
             file_id = file.id
+            
             # looking for a FileFolder link
             result = await session.execute(
                 select(FileFolder)
@@ -78,6 +79,7 @@ async def  check_if_file_folder_link_exist(
                 .where(FileFolder.file_id==file.id)
             )
             file_folder_link = result.scalars().one_or_none()
+            
             if file_folder_link: is_exist_in_cur_folder = True
 
         return is_exist_in_cur_folder, cur_folder_id, cur_user_id, file_id

@@ -7,5 +7,11 @@ from .admin_router import admin_router
 from .remove_folder_router import remove_folder_router
 from .rename_folder_router import rename_folder_router
 from .move_router import move_router
+from .add_file_router import add_file_router
 
-__all__ = ["move_router", "remove_folder_router", "rename_folder_router", "add_folder_router", "private_router", "callback_router", "group_router", "inline_router", "admin_router"]
+__all__ = [
+    "move_router", "remove_folder_router", "rename_folder_router", 
+    "add_folder_router", "add_file_router",
+    "private_router", "callback_router", "group_router", "inline_router", 
+    "admin_router"
+]
