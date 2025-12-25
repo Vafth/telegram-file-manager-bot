@@ -1,11 +1,10 @@
 import json
 
-from aiogram import F, Router, Bot
+from aiogram import Router, Bot
 from aiogram.types import CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
 
-from sqlmodel import select, update, delete
-from sqlalchemy.orm import selectinload
+from sqlmodel import select
 
 from ..db import *
 from ..keyboards.inline_kb import delete_file_button
@@ -35,6 +34,7 @@ async def handle_get_media(callback: CallbackQuery, bot: Bot):
             .where(File.id == file_id)
         )
         file = file_result.scalars().one_or_none()
+        
         if not file:
             await callback.answer("File not found", show_alert=True)
             return
@@ -57,7 +57,7 @@ async def handle_get_media(callback: CallbackQuery, bot: Bot):
         await callback.answer("Media sent!")
 
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "df'))
-async def handle_delete_media(callback: CallbackQuery, bot: Bot):
+async def handle_delete_media(callback: CallbackQuery):
     data      = json.loads(callback.data)
     file_id   = data.get("f")
     folder_id = data.get("o")
@@ -149,8 +149,10 @@ async def handle_go_to_upper_folder(callback: CallbackQuery, bot: Bot):
         
         par_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
         
-    await callback.message.edit_text(f"Folder {par_folder_path}", 
-                    reply_markup=keyboard)
+    await callback.message.edit_text(
+        f"Folder {par_folder_path}", 
+        reply_markup=keyboard
+    )
 
     await callback.answer("Folder changed!")
         

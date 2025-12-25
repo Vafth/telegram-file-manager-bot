@@ -19,8 +19,8 @@ class AddFolderStates(StatesGroup):
     
 @add_folder_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "add_fd"'))
 async def handle_add_folder(callback: CallbackQuery, state: State):
-    print("Creating a new folder")
-    data = json.loads(callback.data)
+
+    data          = json.loads(callback.data)
     par_folder_id = data.get("fd_id")
     
     if not par_folder_id:
@@ -56,21 +56,38 @@ async def providing_folder_name(message: Message, state: State):
     
     new_folder_path = f"{data['fd_path']}{data['fd_name']}/"
     
-    new_folder = Folder(
-            user_id           = data["user_id"],
-            parent_folder_id = data["fd_id"],
-            folder_name       = data["fd_name"],
-            full_path         = new_folder_path
-        )
-    
     async with get_session() as session:
+        
+        # Check_folder
+        folder_exist_result = await session.execute(
+            select(Folder.id)
+            .where(Folder.full_path == new_folder_path)
+        )
+        folder_id = folder_exist_result.scalars().one_or_none()
+
+        if folder_id:
+            await message.answer(
+                f"Folder `{new_folder_path}` already exist.", 
+                show_alert=True
+            )
+            return
+
+        new_folder = Folder(
+                user_id           = data["user_id"],
+                parent_folder_id = data["fd_id"],
+                folder_name       = data["fd_name"],
+                full_path         = new_folder_path
+            )
+
         session.add(new_folder)
         await session.commit()
+        
         # Get user
         user_result = await session.execute(
             select(User)
             .where(User.chat_id == message.chat.id)
         )
+        
         cur_user = user_result.scalars().one_or_none()
 
         if not cur_user:
@@ -84,6 +101,7 @@ async def providing_folder_name(message: Message, state: State):
     
     await message.reply(
         f"New Folder {cur_folder_path}",
-        reply_markup=keyboard)
+        reply_markup=keyboard
+    )
 
     await state.clear()

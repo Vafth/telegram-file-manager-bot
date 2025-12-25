@@ -1,12 +1,10 @@
 from dotenv import load_dotenv
-import os
-from typing import Optional
 import json
 load_dotenv()
 
 from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery
-from aiogram.filters import Command, or_f
+from aiogram.filters import Command
 from aiogram.fsm.state import StatesGroup, State
 
 from sqlmodel import select, update, delete

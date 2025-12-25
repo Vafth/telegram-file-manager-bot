@@ -1,7 +1,4 @@
-from dotenv import load_dotenv
 import os
-from typing import Optional
-load_dotenv()
 
 from aiogram import F, Router, Bot
 from aiogram.types import Message, ReplyKeyboardRemove
@@ -9,11 +6,9 @@ from aiogram.filters import CommandStart, Command, or_f
 from aiogram.fsm.state import StatesGroup, State
 
 from sqlmodel import select
-from sqlalchemy.orm import selectinload
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db import *
-from ..keyboards.inline_kb import confirm_folder_deleting_button
 from app.common import render_keyboard
 
 class FileAddingProccedData(StatesGroup):
@@ -26,15 +21,11 @@ class FileAddingProccedData(StatesGroup):
     user_id           = State()
     current_folder_id = State()
 
-class FolderDeleting(StatesGroup):
-    cur_folder_id = State()
-    par_folder_id = State()
-
 # Generated Maps
 MEDIA_TYPE_ID_MAP = {item[0]: item[2] for item in MEDIA_CONFIG}
 
 async def get_file_info_from_message(message: Message):
-    for shortcut, fullcut, db_id in MEDIA_CONFIG:
+    for shortcut, fullcut, _ in MEDIA_CONFIG:
         media = getattr(message, fullcut, None)
         if media:
             # Handle photo list exception
@@ -92,15 +83,19 @@ async def start_cmd(message: Message):
 
             await session.commit()
             print(
-                f"NEW USER : {new_user}")
-            await message.answer(f"Hello, {user_name}!"
-                                 f"\nYour root folder was created successfully."
-                                 f"\nHave fun!"
-                                )
+                f"NEW USER : {new_user}"
+            )
+            
+            await message.answer(
+                f"Hello, {user_name}!"
+                f"\nYour root folder was created successfully."
+                f"\nHave fun!"
+            )
         else:
-            await message.answer(f"Hello, {user_name}!"
-                                 f"\nWelcome back!"
-                                )
+            await message.answer(
+                f"Hello, {user_name}!"
+                f"\nWelcome back!"
+            )
 
 @private_router.message(or_f((F.animation), (F.audio), (F.photo), (F.video), (F.sticker), (F.document)))
 async def uploading_via_private(message: Message, state: State):
@@ -166,7 +161,7 @@ async def uploading_via_private(message: Message, state: State):
         user_id      = cur_user_id,
         file_id      = file_id,
         file_type_id = file_type_id
-        )
+    )
     
     await state.set_state(FileAddingProccedData.file_name) 
 
@@ -174,11 +169,10 @@ async def uploading_via_private(message: Message, state: State):
 async def uploading_via_private_name_providing(message: Message, bot: Bot, state: State):    
     
     await state.update_data(file_name=message.text)
-    data = await state.get_data()
+    data    = await state.get_data()
     file_id = data["file_id"]       
      
     async with get_session() as session:
-        print("Staring the adding new file session")
         
         if file_id is None:
 
@@ -205,8 +199,6 @@ async def uploading_via_private_name_providing(message: Message, bot: Bot, state
             await session.flush()
             file_id = new_file.id
 
-        print("In the middle of adding new file session")
-
         existing_FileUserLink = await session.execute(
             select(FileUser)
             .where(
@@ -218,19 +210,18 @@ async def uploading_via_private_name_providing(message: Message, bot: Bot, state
         if not existing_FileUserLink.scalars().one_or_none():
             session.add(
                 FileUser(
-                    user_id = data['user_id'],
-                    file_id = file_id,
+                    user_id              = data['user_id'],
+                    file_id              = file_id,
                     first_user_file_name = message.text
                 )
             )
         
         new_file_folder = FileFolder(
-            folder_id=data['folder_id'],
-            file_id=file_id,
-            file_name=message.text,
+            folder_id = data['folder_id'],
+            file_id   = file_id,
+            file_name = message.text,
         )
         
-        print("Now we would add the new file session")
         session.add(new_file_folder)
         
         await session.commit()
@@ -239,7 +230,8 @@ async def uploading_via_private_name_providing(message: Message, bot: Bot, state
     
     await message.reply(
         f"File has been added to the cur folder\nFolder {cur_folder_path}",
-        reply_markup=keyboard)
+        reply_markup = keyboard
+    )
 
     await state.clear()
         
@@ -251,4 +243,5 @@ async def get_folder_tree_cmd(message: Message, bot: Bot):
         
     await message.reply(
         f"Folder {cur_folder_path}", 
-        reply_markup=keyboard)
+        reply_markup = keyboard
+    )

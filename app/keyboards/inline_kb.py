@@ -5,9 +5,11 @@ from ..db import *
 
 builder = InlineKeyboardBuilder()
 
-async def build_folder(folders_in_folder: list[Folder], files_in_folder: list[TrueFile], cur_folder_id: int, i: int = 2): 
+async def build_folder(folders_in_folder: list[Folder], files_in_folder: list[TrueFile], cur_folder_id: int): 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[])
     row: list[InlineKeyboardButton] = []
+    len_all_objects = len(folders_in_folder) + len(files_in_folder)
+    row_len = 1 + (len_all_objects)//6
     
     label = "../"
     callback_data = json.dumps({"a": "u", "f": cur_folder_id}) 
@@ -22,20 +24,26 @@ async def build_folder(folders_in_folder: list[Folder], files_in_folder: list[Tr
         button = InlineKeyboardButton(text=label, callback_data=callback_data)
         row.append(button)
         
-        if (i + 1) % 2 == 0 or i == len(folders_in_folder) - 1:
+        if (i) % row_len == (row_len) - 1:
             keyboard.inline_keyboard.append(row)
             row = []
+    
+    keyboard.inline_keyboard.append(row)
+    row = []
 
     for i, file in enumerate(files_in_folder):
+        
         label = f"/{file.file_name}.{file.short_version}"
         callback_data = json.dumps({"a": "g", "f": file.id, "o": cur_folder_id})
 
         button = InlineKeyboardButton(text=label, callback_data=callback_data)
         row.append(button)
         
-        if (i + 1) % 2 == 0 or i == len(files_in_folder) - 1:
+        if (i) % row_len == (row_len) - 1:
             keyboard.inline_keyboard.append(row)
             row = []
+    keyboard.inline_keyboard.append(row)
+    row = []
 
     label = "Add folder"
     callback_data = json.dumps({"a": "add_fd", "fd_id": cur_folder_id})

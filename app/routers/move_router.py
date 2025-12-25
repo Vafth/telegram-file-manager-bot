@@ -1,16 +1,13 @@
 from dotenv import load_dotenv
-import os
-from typing import Optional
 import json
 load_dotenv()
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.types import Message, CallbackQuery
-from aiogram.filters import Command, or_f
+from aiogram.filters import Command
 from aiogram.fsm.state import StatesGroup, State
 
-from sqlmodel import select, update, delete
-from sqlalchemy.orm import selectinload
+from sqlmodel import select, update
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db import *
@@ -95,7 +92,7 @@ async def handle_confirm_for_move_files(callback: CallbackQuery, state: State):
     state_data         = await state.get_data()
     cur_folder_id      = state_data["cur_folder_id"]
     target_folder_path = state_data["target_folder_path"]
-    target_folder_id = state_data["target_folder_id"]
+    target_folder_id   = state_data["target_folder_id"]
 
     moved_count = 0
 
@@ -128,7 +125,8 @@ async def handle_confirm_for_move_files(callback: CallbackQuery, state: State):
     
     await callback.message.edit_text(
         f"Folder {cur_folder_path}", 
-        reply_markup=keyboard)
+        reply_markup=keyboard
+    )
     
     await state.clear()
     return

@@ -1,10 +1,7 @@
 from typing import List
-import json
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.types import InlineQuery, InlineQueryResult, InlineQueryResultCachedGif, InlineQueryResultCachedAudio, InlineQueryResultCachedSticker, InlineQueryResultCachedPhoto, InlineQueryResultCachedVideo, InlineQueryResultCachedDocument, InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.fsm.state import StatesGroup, State
-from aiogram.fsm.context import FSMContext
 
 from sqlmodel import select
 from sqlalchemy.orm import selectinload
@@ -32,8 +29,9 @@ inline_router.inline_query.filter(inlineUserIsAllowed())
 
 @inline_router.inline_query()
 async def handle_inline_get_media(inline_query: InlineQuery):
-    query_text = inline_query.query.strip() if inline_query.query else ""
-    queries = query_text.split(".")
+    
+    query_text   = inline_query.query.strip() if inline_query.query else ""
+    queries      = query_text.split(".")
     user_chat_id = inline_query.from_user.id
 
     if len(queries) == 2:
@@ -59,7 +57,7 @@ async def handle_inline_get_media(inline_query: InlineQuery):
         if search_type == "folder":
 
             file_ext = queries[1]
-            type_id = MEDIA_TYPE_ID_MAP.get(file_ext)
+            type_id  = MEDIA_TYPE_ID_MAP.get(file_ext)
             
             if type_id is None:
                 return await inline_query.answer([])
@@ -120,24 +118,23 @@ async def handle_inline_get_media(inline_query: InlineQuery):
             
             if not cur_folder or not cur_folder.child_folders:
                 empty_result = InlineQueryResultArticle(
-                    id="empty",
-                    title="Folder is empty",
-                    description=f"No sub-folders found in: {query_text}",
-                    input_message_content=InputTextMessageContent(
-                        message_text="This folder has no sub-folders to show."
+                    id                    = "empty",
+                    title                 = "Folder is empty",
+                    description           = f"No sub-folders found in: {query_text}",
+                    input_message_content = InputTextMessageContent(
+                        message_text      = "This folder has no sub-folders to show."
                     )
                 )
                 return await inline_query.answer([empty_result])
-                
             
             results = []
             for index, child_folder in enumerate(cur_folder.child_folders):
                 result = InlineQueryResultArticle(
-                    id=f"folder_{child_folder.id}_{index}",
-                    title=child_folder.folder_name,
-                    description=child_folder.full_path,
-                    input_message_content=InputTextMessageContent(
-                        message_text=f"Open: `{child_folder.full_path}`" 
+                    id                    = f"folder_{child_folder.id}_{index}",
+                    title                 = child_folder.folder_name,
+                    description           = child_folder.full_path,
+                    input_message_content = InputTextMessageContent(
+                        message_text      = f"Open: `{child_folder.full_path}`" 
                     ),
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(
@@ -180,9 +177,8 @@ async def handle_inline_get_media(inline_query: InlineQuery):
                 
                 results.append(ResultClass(**payload))
 
-        print(results)
         await inline_query.answer(
-            results=results,
-            cache_time=0,
-            is_personal=True
+            results     = results,
+            cache_time  = 0,
+            is_personal = True
         )

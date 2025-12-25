@@ -1,4 +1,4 @@
-from aiogram import F, Router, Bot
+from aiogram import Router, Bot
 from aiogram.types import Message
 from aiogram.filters import Command
 from aiogram.types import BufferedInputFile
@@ -19,8 +19,10 @@ async def getting_the_list_of_links_to_audio(message: Message, bot: Bot):
     
     async with get_session() as session:
         try:
-            folder_query = select(Folder).where(Folder.full_path == folder_path)
-            folder_result = await session.execute(folder_query)
+            folder_result = await session.execute(
+                select(Folder)
+                .where(Folder.full_path == folder_path)
+            )
             folder = folder_result.scalars().one_or_none()
             
             if not folder:

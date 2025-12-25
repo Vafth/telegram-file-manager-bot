@@ -1,20 +1,15 @@
 from dotenv import load_dotenv
-import os
-from typing import Optional
-import json
 load_dotenv()
 
 from aiogram import F, Router
-from aiogram.types import Message, CallbackQuery
-from aiogram.filters import Command, or_f
+from aiogram.types import Message
+from aiogram.filters import Command
 from aiogram.fsm.state import StatesGroup, State
 
-from sqlmodel import select, update, delete, func
-from sqlalchemy.orm import selectinload
+from sqlmodel import select, update, func
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db import *
-from ..keyboards.inline_kb import confirm_folder_deleting_button
 from app.common import render_keyboard
 
 rename_folder_router = Router()

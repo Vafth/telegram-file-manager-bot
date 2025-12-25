@@ -8,5 +8,4 @@ group_router = Router()
 
 @group_router.message(and_f(isGroup(), groupIsAllowed()))
 async def animation_uploading_via_group(message: Message):
-    print(1234567890)
-    await message.answer("FUck YOU")
+    await message.reply("FUck YOU")
