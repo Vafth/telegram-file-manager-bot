@@ -9,7 +9,6 @@ wheels/
 database.db
 general.txt
 requirements.txt
-test
 .python-version
-# Virtual environments
+
 .venv

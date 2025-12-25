@@ -55,4 +55,3 @@ async def seed_media_types():
                 session.add(media_type)
         
         await session.commit()
-        print("MediaType table seeded")
