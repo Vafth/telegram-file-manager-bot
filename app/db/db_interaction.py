@@ -8,26 +8,35 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 async def create_new_user_with_folder(session: AsyncSession, user_chat_id: int, user_name: str):
     
-    new_user = User(chat_id = user_chat_id)
-    session.add(new_user)
-    await session.flush()
-
-    new_folder = Folder(
-        user_id          = new_user.id,
-        parent_folder_id = None,
-        folder_name      = user_name,
-        full_path        = "/"
+    result = await session.execute(
+         select(User.chat_id)
+         .where(User.chat_id == user_chat_id)
     )
+    cur_user_check = result.scalars().one_or_none()
+    
+    if cur_user_check is None:
+        new_user = User(chat_id = user_chat_id)
+        session.add(new_user)
+        await session.flush()
 
-    session.add(new_folder)
-    await session.flush()
+        new_folder = Folder(
+            user_id          = new_user.id,
+            parent_folder_id = None,
+            folder_name      = user_name,
+            full_path        = "/"
+        )
 
-    new_user.cur_folder_id = new_folder.id
+        session.add(new_folder)
+        await session.flush()
 
-    await session.flush()
-    print(
-        f"NEW USER : {new_user}"
-    )
+        new_user.cur_folder_id = new_folder.id
+
+        await session.flush()
+        print(
+            f"NEW USER : {new_user}"
+        )
+
+    return cur_user_check
 
 async def  check_if_file_folder_link_exist(
           session: AsyncSession,

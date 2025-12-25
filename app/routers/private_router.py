@@ -1,13 +1,10 @@
 import os
-from typing import Optional
-
 from aiogram import F, Router, Bot
 from aiogram.types import Message
 from aiogram.filters import CommandStart, Command, or_f
 from aiogram.fsm.state import StatesGroup, State
 
 from sqlmodel import select
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db import *
@@ -62,16 +59,14 @@ async def start_cmd(message: Message):
     user_name: str = message.from_user.username
     
     async with get_session() as session:
-        result = await session.execute(select(User.chat_id).where(User.chat_id == chat_id))
-        cur_user_check = result.scalars().one_or_none()
-    
-        if not cur_user_check:    
-            await create_new_user_with_folder(
+
+        cur_user_check = await create_new_user_with_folder(
                 session = session, 
                 chat_id = chat_id, 
                 user_name = user_name
             )
 
+        if not cur_user_check:
             await message.answer(
                 f"Hello, {user_name}!"
                 f"\nYour root folder was created successfully."
@@ -110,7 +105,7 @@ async def uploading_via_private(message: Message, state: State):
             file_shortcut = file_shortcut
         )
 
-    if not is_exist:
+    if is_exist:
         await message.reply(f"That File already is in the current folder!")
         await state.clear()
         return
