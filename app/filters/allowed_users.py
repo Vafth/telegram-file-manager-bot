@@ -6,6 +6,9 @@ class userIsAllowed(Filter):
     def __init__(self) -> None:
         pass
     async def __call__(self, message: Message, bot: Bot) -> bool:
+        print(
+            f"Try to write to the Bot: {message.chat.id}"
+            )
         return message.from_user.id in bot.my_admin_list
     
 class inlineUserIsAllowed(Filter):

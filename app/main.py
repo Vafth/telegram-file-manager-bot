@@ -26,14 +26,15 @@ async def start_bot(bot: Bot):
         await bot.send_message(bot.my_admin_list[0], "Bot has awakened.")
     commands = [
         BotCommand(command="start", description="Start Command"),
-        BotCommand(command="fs", description="Open File System"),
+        BotCommand(command="help", description="User Guide"),
+        BotCommand(command="fe", description="Open File System"),
         BotCommand(command="rm", description="Remove current folder - all files would be moved to the upper folder"),
         BotCommand(command="rn", description="Rename current folder"),
         BotCommand(command="mv", description="Move all files to the specified folder using the provided full path"),
     ]
 
-    #await bot.delete_my_commands(scope=BotCommandScopeChat(chat_id=bot.my_admin_list[0]))
-    #await bot.set_my_commands(commands, scope=BotCommandScopeChat(chat_id=bot.my_admin_list[0]))
+    await bot.delete_my_commands(scope=BotCommandScopeChat(chat_id=bot.my_admin_list[0]))
+    await bot.set_my_commands(commands, scope=BotCommandScopeChat(chat_id=bot.my_admin_list[0]))
     
     print("Bot started and Menu Commands updated.")
     await create_db_and_tables()

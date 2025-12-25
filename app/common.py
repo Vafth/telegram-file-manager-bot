@@ -59,3 +59,42 @@ async def render_keyboard(session: AsyncSession, folder_id: Optional[int] = None
     )
 
     return (folder_path, keyboard)
+
+help_guide = """
+<b>File Manager Commands:</b>
+
+<b>/fe</b> — File Explorer
+├ <b>Add Folder:</b> Create a subfolder in current location
+├ <b>Save File:</b> Send any file to save it in current folder
+└ <b>Get File:</b> Click file button -> file sent to chat
+
+<b>/rn</b> — Rename current folder
+
+<b>/mv</b> — Move all files from current folder to target folder
+
+<b>/rm</b> — Delete current folder
+     <i>Note: Remaining files move to parent folder</i>
+
+<b>Inline Mode:</b>
+
+<b>Search by folder:</b>
+  • Type folder path to see subfolders
+  • <i>Example:</i> <code>@your_bot /your/</code>
+  
+<b>Search by file type:</b>
+  • Type extension to see all matching files
+  • <i>Example:</i> <code>@your_bot .gif</code> -> shows all gif files
+  
+<b>Search in specific folder:</b>
+  • Combine path + extension (max 50 results)
+  • <i>Example:</i> <code>@your_bot /your/saved/gifs/.gif</code>
+
+<b>File Types:</b>
+<b>Animation:</b> <code>.gif</code>
+<b>Video:</b> <code>.mp4</code>
+<b>Photo:</b> <code>.png</code>
+<b>Audio:</b> <code>.mp3</code>
+<b>Sticker:</b> <code>.sti</code>
+<b>Document:</b> <code>.doc</code>
+
+"""

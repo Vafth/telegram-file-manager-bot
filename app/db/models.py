@@ -43,7 +43,7 @@ class User(SQLModel, table=True):
     chat_id:             int           = Field(unique  = True, index       = True)
     login:               Optional[str] = Field(default = None, unique      = True, index = True)
     password:            Optional[str] = Field(default = None, index       = True)
-    cur_folder_id:       Optional[int] = Field(default = None, index       = True )
+    cur_folder_id:       Optional[int] = Field(default = "/",  index       = True )
     
     join_at:             datetime      = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -60,7 +60,7 @@ class Folder(SQLModel, table=True):
     user_id:           int           = Field(index   = True, foreign_key = "users.id")
     parent_folder_id:  Optional[int] = Field(default = None, index       = True, foreign_key="folders.id")
     folder_name:       str           = Field(index   = True)
-    full_path:         Optional[str] = Field(default = "/",  index       = True)
+    full_path:         Optional[str] = Field(default = None, index       = True)
     created_at:        datetime      = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user:          Optional[User]     = Relationship(back_populates = "folders",

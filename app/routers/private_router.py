@@ -9,7 +9,7 @@ from sqlmodel import select
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db import *
-from app.common import render_keyboard
+from app.common import render_keyboard, help_guide
 
 class FileAddingProccedData(StatesGroup):
     tg_file_id        = State()
@@ -48,12 +48,11 @@ async def get_file_info_by_shortcut(telegram_type):
 private_router = Router()
 private_router.message.filter(userIsAllowed(), isPrivate())
 
-@private_router.message(Command("clear"))
+@private_router.message(Command("help"))
 async def command_clear(message: Message):
-    await message.answer(
-        "Keyboard removed.",
-        reply_markup=ReplyKeyboardRemove()
-    )
+    await message.answer(f"User Guide:")
+    await message.reply(text=help_guide, parse_mode='HTML')
+
 
 @private_router.message(CommandStart())
 async def start_cmd(message: Message):
@@ -85,17 +84,19 @@ async def start_cmd(message: Message):
             print(
                 f"NEW USER : {new_user}"
             )
-            
+
             await message.answer(
                 f"Hello, {user_name}!"
                 f"\nYour root folder was created successfully."
                 f"\nHave fun!"
             )
+            await message.reply(text=help_guide, parse_mode='HTML')
         else:
             await message.answer(
                 f"Hello, {user_name}!"
                 f"\nWelcome back!"
             )
+            await message.reply(text=help_guide, parse_mode='HTML')
 
 @private_router.message(or_f((F.animation), (F.audio), (F.photo), (F.video), (F.sticker), (F.document)))
 async def uploading_via_private(message: Message, state: State):
@@ -235,7 +236,7 @@ async def uploading_via_private_name_providing(message: Message, bot: Bot, state
 
     await state.clear()
         
-@private_router.message(Command("fs"))
+@private_router.message(Command("fe"))
 async def get_folder_tree_cmd(message: Message, bot: Bot):
     
     async with get_session() as session:
