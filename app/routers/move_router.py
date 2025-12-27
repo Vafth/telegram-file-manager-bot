@@ -7,10 +7,10 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.state import StatesGroup, State
 
-from sqlmodel import select, update
-
 from ..filters.allowed_users import userIsAllowed, isPrivate
-from ..db import *
+from ..db.db import get_session
+from ..db.db_interaction import check_user, check_folder_by_path_and_chat, move_file_folder_links
+
 from ..keyboards.inline_kb import confirm_file_moving_button
 from app.common import render_keyboard
 
@@ -27,11 +27,11 @@ class FoldersMoving(StatesGroup):
 async def handle_move_cmd(message: Message, state: State):
     
     async with get_session() as session:
-        folder_result = await session.execute(
-            select(User.cur_folder_id) 
-            .where(User.chat_id == message.chat.id)
+
+        _, cur_folder_id = await check_user(
+            session = session,
+            chat_id = message.chat.id
         )
-        cur_folder_id = folder_result.scalars().one_or_none()
 
     if not cur_folder_id:
         await message.answer(f"Folder not found")
@@ -57,13 +57,12 @@ async def handle_target_folder_path(message: Message, state: State):
 
     async with get_session() as session:
 
-        target_folder_result = await session.execute(
-            select(Folder.id)
-            .where(Folder.full_path == target_folder_path)
-        )   
-    
-    target_folder_id = target_folder_result.scalars().one_or_none()
-    
+        target_folder_id, _ = check_folder_by_path_and_chat(
+            session = session,
+            chat_id = message.chat.id,
+            path    = target_folder_path
+        )
+         
     if not target_folder_id:
         await message.answer(f"Moving canceled: Target folder {target_folder_path} not found")
         await state.clear()
@@ -100,21 +99,13 @@ async def handle_confirm_for_move_files(callback: CallbackQuery, state: State):
 
         if confirmation:
     
-            # Update FileFolder links
-            update_links_result = await session.execute(
-                update(FileFolder)
-                .where(FileFolder.folder_id == cur_folder_id)
-                .values(folder_id=target_folder_id)
-                .returning(FileFolder.file_id)
+            moved_count = await move_file_folder_links(
+                session          = session,
+                folder_id        = cur_folder_id,
+                target_folder_id = target_folder_id,
             )
-            moved_files = update_links_result.scalars().all()
-            moved_count = len(moved_files)
-            
-            print(f"Moved files count : {moved_count}")
-            
-            await session.commit() 
 
-        cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
+        cur_folder_path, keyboard = await render_keyboard(session = session, chat_id = callback.message.chat.id)
 
     if confirmation:
         await callback.answer(

@@ -21,7 +21,7 @@ async def test_file_existing_check(create_user, session):
 
     assert user is not None
     
-    is_exist, cur_folder_id, cur_user_id, file_id = await check_if_file_folder_link_exist(
+    is_exist, cur_folder_id, cur_user_id, file_id = await check_file_folder_link(
         session       = session,
         chat_id       = user_chat_id,
         file_tg_id    = fake_file_tg_id,
@@ -32,3 +32,4 @@ async def test_file_existing_check(create_user, session):
     assert cur_folder_id == user.cur_folder_id
     assert cur_user_id == user.id
     assert file_id == None
+    

@@ -5,7 +5,10 @@ from aiogram.filters import or_f
 from aiogram.fsm.state import StatesGroup, State
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
-from ..db import *
+from ..db.db import get_session, MEDIA_CONFIG
+from ..db.db_interaction import check_file_folder_link, create_new_file
+from ..db.models import File
+
 from app.common import render_keyboard
 
 class FileAddingProccedData(StatesGroup):
@@ -61,7 +64,7 @@ async def uploading_via_private(message: Message, state: State):
     await state.update_data(file_type=file_shortcut)
     
     async with get_session() as session:
-        is_exist, cur_folder_id, cur_user_id, file_id = await check_if_file_folder_link_exist(
+        is_exist, cur_folder_id, cur_user_id, file_id = await check_file_folder_link(
             session       = session,
             chat_id       = chat_id,
             file_tg_id    = file_tg_id,

@@ -27,4 +27,4 @@ async def test_registration(create_user, session):
     assert folder.folder_name == user_name
     assert folder.full_path   == '/'
     assert folder.user == user
-    assert folder.parent_folder is None    
+    assert folder.parent_folder is None

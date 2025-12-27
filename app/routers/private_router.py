@@ -1,9 +1,11 @@
-import os
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.types import Message
 from aiogram.filters import CommandStart, Command
 from ..filters.allowed_users import userIsAllowed, isPrivate
-from ..db import *
+
+from ..db.db import get_session
+from ..db.db_interaction import create_new_user_with_folder
+
 from app.common import render_keyboard, help_guide
 
 private_router = Router()
@@ -13,7 +15,6 @@ private_router.message.filter(userIsAllowed(), isPrivate())
 async def command_clear(message: Message):
     await message.answer(f"User Guide:")
     await message.reply(text=help_guide, parse_mode='HTML')
-
 
 @private_router.message(CommandStart())
 async def start_cmd(message: Message):

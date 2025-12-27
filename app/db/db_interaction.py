@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from sqlmodel import select
+from sqlmodel import select, update, func
 from ..db import *
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,51 +38,81 @@ async def create_new_user_with_folder(session: AsyncSession, user_chat_id: int, 
 
     return cur_user_check
 
-async def check_if_file_folder_link_exist(
-          session: AsyncSession,
-          chat_id: int,
-          file_tg_id: str,
+async def check_user(session: AsyncSession, chat_id: int) -> tuple[Optional[int], Optional[int]]:
+     
+    # looking for a current user's folder id 
+    cur_user_id_and_folder_result = await session.execute(
+         select(User.id, User.cur_folder_id)
+         .where(User.chat_id == chat_id)
+    )
+    cur_user_id, cur_folder_id = cur_user_id_and_folder_result.one()
+     
+    return cur_user_id, cur_folder_id
+
+
+async def check_folder_by_chat_id(session: AsyncSession, chat_id: int) -> tuple[Optional[Folder], Optional[int]]:
+    # looking for a current user's folder 
+    folder_result = await session.execute(
+        select(Folder, User.id)
+        .join(User, User.cur_folder_id == Folder.id)
+        .where(User.chat_id == chat_id)
+    )
+    folder, user_id = folder_result.one_or_none()
+    
+    return folder, user_id
+
+
+async def check_folder_by_path_and_chat(session: AsyncSession, path: str, chat_id: int) -> tuple[Optional[int], bool]:
+    
+    folder, user_id = await check_folder_by_chat_id(session, chat_id)
+    
+    folder_id = None
+    is_user   = True if user_id else False
+
+    if folder.full_path == path:
+        folder_id = folder.id
+    
+    return folder_id, is_user
+
+async def check_file_folder_link(
+          session:       AsyncSession,
+          chat_id:       int,
+          file_tg_id:    str,
           file_shortcut: str
-          ) -> tuple[bool,int, int, Optional[int]]:
+          ) -> tuple[bool, int, int, Optional[int]]:
 
-        # looking for a current user's folder id 
-        cur_user_id_and_folder_result = await session.execute(
-            select(
-                User.id,
-                User.cur_folder_id
-            ).where(
-                User.chat_id == chat_id
-            )
+        
+    cur_user_id, cur_folder_id = await check_user(
+            session = session, 
+            chat_id = chat_id
+    )
+    
+    # looking for a file with a corresponded file type
+    file_result = await session.execute(
+        select(File)
+        .join(MediaType, File.file_type == MediaType.id)
+        .where(File.tg_id == file_tg_id)
+        .where(MediaType.short_version == file_shortcut)
+    )
+    file = file_result.scalars().one_or_none()
+    
+    file_id                = None
+    is_exist_in_cur_folder = False
+    
+    if file:
+        file_id = file.id
+        
+        # looking for a FileFolder link
+        result = await session.execute(
+            select(FileFolder)
+            .where(FileFolder.folder_id==cur_folder_id)
+            .where(FileFolder.file_id==file.id)
         )
+        file_folder_link = result.scalars().one_or_none()
         
-        cur_user_id, cur_folder_id = cur_user_id_and_folder_result.one()
+        if file_folder_link: is_exist_in_cur_folder = True
 
-        # looking for a file with a corresponded file type
-        file_result = await session.execute(
-            select(File)
-            .join(MediaType, File.file_type == MediaType.id)
-            .where(File.tg_id == file_tg_id)
-            .where(MediaType.short_version == file_shortcut)
-        )
-        file = file_result.scalars().one_or_none()
-        
-        file_id                  = None
-        is_exist_in_cur_folder   = False
-        
-        if file:
-            file_id = file.id
-            
-            # looking for a FileFolder link
-            result = await session.execute(
-                select(FileFolder)
-                .where(FileFolder.folder_id==cur_folder_id)
-                .where(FileFolder.file_id==file.id)
-            )
-            file_folder_link = result.scalars().one_or_none()
-            
-            if file_folder_link: is_exist_in_cur_folder = True
-
-        return is_exist_in_cur_folder, cur_folder_id, cur_user_id, file_id
+    return is_exist_in_cur_folder, cur_folder_id, cur_user_id, file_id
 
 
 async def create_new_file(
@@ -94,35 +124,102 @@ async def create_new_file(
           file_id:   Optional[int] = None,
         ):
         
-        if new_file:
-            session.add(new_file)
-            await session.flush()
-            file_id = new_file.id
-
-        existing_FileUserLink = await session.execute(
-            select(FileUser)
-            .where(
-                FileUser.file_id == file_id,
-                FileUser.user_id == user_id
-            )
-        )
-
-        if not existing_FileUserLink.scalars().one_or_none():
-            session.add(
-                FileUser(
-                    user_id              = user_id,
-                    file_id              = file_id,
-                    first_user_file_name = file_name
-                )
-            )
-        
-        new_file_folder = FileFolder(
-            folder_id = folder_id,
-            file_id   = file_id,
-            file_name = file_name,
-        )
-        
-        session.add(new_file_folder)
-        
+    if new_file:
+        session.add(new_file)
         await session.flush()
+        file_id = new_file.id
+
+    existing_FileUserLink = await session.execute(
+        select(FileUser)
+        .where(
+            FileUser.file_id == file_id,
+            FileUser.user_id == user_id
+        )
+    )
+
+    if not existing_FileUserLink.scalars().one_or_none():
+        session.add(
+            FileUser(
+                user_id              = user_id,
+                file_id              = file_id,
+                first_user_file_name = file_name
+            )
+        )
     
+    new_file_folder = FileFolder(
+        folder_id = folder_id,
+        file_id   = file_id,
+        file_name = file_name,
+    )
+    
+    session.add(new_file_folder)
+    
+    await session.flush()
+
+async def create_new_folder(session: AsyncSession, new_folder: Folder):
+
+    session.add(new_folder)
+    await session.flush()
+    
+    return new_folder.id
+
+
+async def set_user_folder(session: AsyncSession, chat_id: int, folder_id: int):
+    # Get user
+    user_result = await session.execute(
+        select(User)
+        .where(User.chat_id == chat_id)
+    )
+    user = user_result.scalars().one_or_none()
+
+    # Set new cur_folder_id value
+    user.cur_folder_id = folder_id
+    
+    await session.flush()
+        
+
+async def move_file_folder_links(
+                session:          AsyncSession,
+                folder_id:        int,
+                target_folder_id: int,
+            ) -> int:
+
+    # Update FileFolder links
+    update_links_result = await session.execute(
+        update(FileFolder)
+        .where(FileFolder.folder_id == folder_id)
+        .values(folder_id=target_folder_id)
+        .returning(FileFolder.file_id)
+    )
+    moved_files = update_links_result.scalars().all()
+    
+    moved_count = len(moved_files)
+    print(f"Moved files count : {moved_count}")
+
+    await session.flush() 
+    
+    return moved_count
+
+async def update_folder_name_and_path(
+            session: AsyncSession,
+            folder_id: int,
+            new_name: str,
+            old_path: str,
+            new_path: str,
+            ):
+    
+    await session.execute(
+        update(Folder)
+        .where(Folder.id == folder_id)
+        .values(folder_name=new_name)
+    )   
+
+    await session.execute(
+        update(Folder)
+        .where(Folder.full_path.startswith(old_path))
+        .values(
+            full_path=func.replace(Folder.full_path, old_path, new_path)
+        )
+    )
+
+    await session.flush()

@@ -1,15 +1,12 @@
-from dotenv import load_dotenv
-load_dotenv()
-
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.types import Message
 from aiogram.filters import Command
 from aiogram.fsm.state import StatesGroup, State
 
-from sqlmodel import select, update, func
-
 from ..filters.allowed_users import userIsAllowed, isPrivate
-from ..db import *
+from ..db.db import get_session
+from ..db.db_interaction import check_folder_by_chat_id, update_folder_name_and_path
+
 from app.common import render_keyboard
 
 rename_folder_router = Router()
@@ -23,12 +20,10 @@ class FolderRenaming(StatesGroup):
 async def handle_rename_folder_cmd(message: Message, state: State):
     
     async with get_session() as session:
-        folder_result = await session.execute(
-            select(Folder) 
-            .join(User, Folder.id == User.cur_folder_id)
-            .where(User.chat_id == message.chat.id)
+        folder = await check_folder_by_chat_id(
+            session = session,
+            chat_id = message.chat.id
         )
-        folder = folder_result.scalars().one_or_none()
 
     if not folder.parent_folder_id:
         await message.reply("Can't rename the root folder")
@@ -53,8 +48,6 @@ async def handle_rename_folder(message: Message, state: State):
     old_path   = state_data["old_path"]
     new_name   = message.text
 
-    # Calculate new path for the folder itself
-    # Assuming path is like /home/documents
     path_parts = old_path.rstrip('/').split('/')
     path_parts[-1] = new_name
     new_path = "/".join(path_parts) + '/'
@@ -66,23 +59,15 @@ async def handle_rename_folder(message: Message, state: State):
 
     async with get_session() as session:
 
-        await session.execute(
-            update(Folder)
-            .where(Folder.id == folder_id)
-            .values(folder_name=new_name)
-        )   
-
-        await session.execute(
-            update(Folder)
-            .where(Folder.full_path.startswith(old_path))
-            .values(
-                full_path=func.replace(Folder.full_path, old_path, new_path)
+        await update_folder_name_and_path(
+            session   = session,
+            folder_id = folder_id,
+            new_name  = new_name,
+            old_path  = old_path,
+            new_path  = new_path,
             )
-        )
-
-        await session.commit()
     
-    cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=message.chat.id)
+        cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=message.chat.id)
 
     await message.reply(
         f"Folder {cur_folder_path}", 

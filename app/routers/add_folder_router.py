@@ -4,9 +4,10 @@ from aiogram import Router
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.state import StatesGroup, State
 
-from sqlmodel import select
+from ..db.db import get_session
+from ..db.models import Folder
+from ..db.db_interaction import check_folder_by_chat_id, check_folder_by_path_and_chat, create_new_folder, set_user_folder
 
-from ..db import *
 from app.common import render_keyboard
 
 add_folder_router = Router()
@@ -28,17 +29,16 @@ async def handle_add_folder(callback: CallbackQuery, state: State):
         return
     
     async with get_session() as session:
-        folder_result = await session.execute(
-            select(Folder, User.id)
-            .join(User, User.cur_folder_id == Folder.id)
-            .where(User.chat_id == callback.message.chat.id)
+        
+        folder, user_id = await check_folder_by_chat_id(
+            session = session,
+            chat_id = callback.message.chat.id
         )
-        folder, user_id = folder_result.one_or_none()
-        
-        if not folder:
-            await callback.answer("Folder not found", show_alert=True)
-            return
-        
+
+    if not folder:
+        await callback.answer("Folder not found", show_alert=True)
+        return
+    
     await callback.message.answer(f"Provide the new folder name")
     await state.update_data(
         fd_path = folder.full_path,
@@ -58,12 +58,11 @@ async def providing_folder_name(message: Message, state: State):
     
     async with get_session() as session:
         
-        # Check_folder
-        folder_exist_result = await session.execute(
-            select(Folder.id)
-            .where(Folder.full_path == new_folder_path)
+        folder_id, is_user = await check_folder_by_path_and_chat(
+            session   = session,
+            full_path = new_folder_path,
+            chat_id   = message.chat.id
         )
-        folder_id = folder_exist_result.scalars().one_or_none()
 
         if folder_id:
             await message.answer(
@@ -72,30 +71,30 @@ async def providing_folder_name(message: Message, state: State):
             )
             return
 
-        new_folder = Folder(
-                user_id           = data["user_id"],
-                parent_folder_id = data["fd_id"],
-                folder_name       = data["fd_name"],
-                full_path         = new_folder_path
+        if not is_user:
+            await message.answer(
+                f"User not found.", 
+                show_alert=True
             )
-
-        session.add(new_folder)
-        await session.commit()
-        
-        # Get user
-        user_result = await session.execute(
-            select(User)
-            .where(User.chat_id == message.chat.id)
-        )
-        
-        cur_user = user_result.scalars().one_or_none()
-
-        if not cur_user:
-            await message.answer("User not found", show_alert=True)
             return
 
-        cur_user.cur_folder_id = new_folder.id
-        await session.commit()
+        new_folder = Folder(
+                user_id          = data["user_id"],
+                parent_folder_id = data["fd_id"],
+                folder_name      = data["fd_name"],
+                full_path        = new_folder_path
+        )
+        
+        new_folder_id = await create_new_folder(
+            session    = session,
+            new_folder = new_folder,
+        )
+        
+        await set_user_folder(
+            session   = session,
+            chat_id   = message.chat.id,
+            folder_id = new_folder_id
+        )
 
         cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=message.chat.id)
     
