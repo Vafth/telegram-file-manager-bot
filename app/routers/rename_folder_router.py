@@ -5,7 +5,7 @@ from aiogram.fsm.state import StatesGroup, State
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db.db import get_session
-from ..db.db_interaction import check_folder_by_chat_id, update_folder_name_and_path
+from ..db.db_interaction import check_cur_folder_by_chat_id, update_folder_name_and_path
 
 from app.common import render_keyboard
 
@@ -20,7 +20,7 @@ class FolderRenaming(StatesGroup):
 async def handle_rename_folder_cmd(message: Message, state: State):
     
     async with get_session() as session:
-        folder = await check_folder_by_chat_id(
+        folder = await check_cur_folder_by_chat_id(
             session = session,
             chat_id = message.chat.id
         )

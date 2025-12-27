@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 import json
 load_dotenv()
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.state import StatesGroup, State
@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db import *
+
 from ..keyboards.inline_kb import confirm_folder_deleting_button
 from app.common import render_keyboard
 
@@ -26,13 +27,11 @@ class FolderDeleting(StatesGroup):
 async def handle_remove_folder_cmd(message: Message, state: State):
     
     async with get_session() as session:
-        folder_result = await session.execute(
-            select(Folder, User.cur_folder_id) 
-            .options(selectinload(Folder.child_folders))
-            .join(User, Folder.id == User.cur_folder_id)
-            .where(User.chat_id == message.chat.id)
+        
+        folder, _ = await check_cur_folder_by_chat_id(
+            session = session,
+            chat_id = message.chat.id
         )
-        folder, cur_folder_id = folder_result.one_or_none()
 
     if not folder:
         await message.answer(f"Folder `{folder.full_path}` not found")
@@ -48,17 +47,19 @@ async def handle_remove_folder_cmd(message: Message, state: State):
 
     folder_path = folder.full_path
     
-    keyboard = await confirm_folder_deleting_button(folder_id=cur_folder_id)
+    keyboard = await confirm_folder_deleting_button()
     
     await message.reply(
         f"Confirm removing folder '{folder_path}'\n"
         f"All remainig files will be moved to the parent folder", 
-        reply_markup=keyboard)
+        reply_markup=keyboard
+    )
 
     await state.update_data(
-        cur_folder_id = cur_folder_id,
+        cur_folder_id = folder.id,
         par_folder_id = folder.parent_folder_id
-        )    
+    )
+    
     await state.set_state(FolderDeleting.par_folder_id) 
     
 @remove_folder_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "cd'), FolderDeleting.par_folder_id)
@@ -67,7 +68,6 @@ async def handle_delete_folder(callback: CallbackQuery, state: State):
     confirmation = data.get("c")
     
     state_data = await state.get_data()
-    cur_folder_id = state_data["cur_folder_id"]
     par_folder_id = state_data["par_folder_id"]
 
     moved_count = 0
@@ -78,7 +78,13 @@ async def handle_delete_folder(callback: CallbackQuery, state: State):
             # Update FileFolder links
             update_links_result = await session.execute(
                 update(FileFolder)
-                .where(FileFolder.folder_id == cur_folder_id)
+                .where(
+                    FileFolder.folder_id == (
+                        select(User.cur_folder_id)
+                        .where(User.chat_id == callback.message.chat.id)
+                        .scalar_subquery()
+                    )
+                )
                 .values(folder_id=par_folder_id)
                 .returning(FileFolder.file_id)
             )
@@ -101,11 +107,11 @@ async def handle_delete_folder(callback: CallbackQuery, state: State):
                 .values(cur_folder_id = par_folder_id)
             )
             
-            await session.commit()
+            await session.flush()
             
             cur_folder_id = par_folder_id 
 
-    cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
+        cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
 
     if confirmation:
         await callback.answer(

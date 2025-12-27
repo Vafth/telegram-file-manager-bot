@@ -9,7 +9,7 @@ from aiogram.fsm.state import StatesGroup, State
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db.db import get_session
-from ..db.db_interaction import check_user, check_folder_by_path_and_chat, move_file_folder_links
+from ..db.db_interaction import check_user, get_folder_id_by_path_and_chat_id, move_file_folder_links
 
 from ..keyboards.inline_kb import confirm_file_moving_button
 from app.common import render_keyboard
@@ -57,7 +57,7 @@ async def handle_target_folder_path(message: Message, state: State):
 
     async with get_session() as session:
 
-        target_folder_id, _ = check_folder_by_path_and_chat(
+        target_folder_id = await get_folder_id_by_path_and_chat_id(
             session = session,
             chat_id = message.chat.id,
             path    = target_folder_path
@@ -73,12 +73,12 @@ async def handle_target_folder_path(message: Message, state: State):
     await message.reply(
         f"Confirm moving all files from the current folder\n"
         f"into folder `{target_folder_path}`", 
-        reply_markup=keyboard
+        reply_markup = keyboard
     )
 
     await state.update_data(
         target_folder_path = target_folder_path,
-        target_folder_id = target_folder_id,
+        target_folder_id   = target_folder_id,
     )    
     
     await state.set_state(FoldersMoving.confirm) 

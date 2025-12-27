@@ -113,7 +113,7 @@ async def delete_file_button(folder_id, file_id):
     
     return keyboard
 
-async def confirm_folder_deleting_button(folder_id): 
+async def confirm_folder_deleting_button(): 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[])
     
     label = "Yes, Delete that folder"

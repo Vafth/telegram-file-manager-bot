@@ -50,7 +50,7 @@ async def check_user(session: AsyncSession, chat_id: int) -> tuple[Optional[int]
     return cur_user_id, cur_folder_id
 
 
-async def check_folder_by_chat_id(session: AsyncSession, chat_id: int) -> tuple[Optional[Folder], Optional[int]]:
+async def check_cur_folder_by_chat_id(session: AsyncSession, chat_id: int) -> tuple[Optional[Folder], Optional[int]]:
     # looking for a current user's folder 
     folder_result = await session.execute(
         select(Folder, User.id)
@@ -62,9 +62,20 @@ async def check_folder_by_chat_id(session: AsyncSession, chat_id: int) -> tuple[
     return folder, user_id
 
 
-async def check_folder_by_path_and_chat(session: AsyncSession, path: str, chat_id: int) -> tuple[Optional[int], bool]:
+async def get_folder_id_by_path_and_chat_id(session: AsyncSession, path: str, chat_id: int) -> tuple[Optional[int]]:
+     
+    folder_result = await session.execute(
+        select(Folder.id)
+        .join(User, User.chat_id == chat_id)
+        .where(Folder.full_path == path)
+    )
+    folder_id = folder_result.scalars().one_or_none()
     
-    folder, user_id = await check_folder_by_chat_id(session, chat_id)
+    return folder_id
+
+async def check_folder_by_path_and_chat_id(session: AsyncSession, path: str, chat_id: int) -> tuple[Optional[int], bool]:
+    
+    folder, user_id = await check_cur_folder_by_chat_id(session, chat_id)
     
     folder_id = None
     is_user   = True if user_id else False

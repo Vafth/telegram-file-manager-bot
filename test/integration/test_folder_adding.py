@@ -4,43 +4,42 @@ from app.db import *
 import pytest
 
 @pytest.mark.asyncio
-async def test_one_folder_adding(create_user, session):
+async def test_one_folder_adding(create_user, create_folder, session):
+    # Create a new user 
+    user_name    = "test_user"
+    user_chat_id = 1
 
-    user_name       = "test_user"
-    user_chat_id    = 1
-    cur_folder_path = "/"
-    new_folder_name = "test1"
-    new_folder_path = f"{cur_folder_path}{new_folder_name}/"
-    
     await create_user(user_chat_id=user_chat_id, user_name=user_name)
-    
-    folder, user_id = await check_folder_by_chat_id(
+    # Check if user creating creates user and its folder
+    root_folder, user_id = await check_cur_folder_by_chat_id(
         session = session,
         chat_id = user_chat_id
     )
 
-    assert folder is not None
-        
-    folder_id, _ = await check_folder_by_path_and_chat(
+    assert root_folder is not None
+    
+    # Check if the folder with target path are not in the db yet
+    cur_folder_path = "/"
+    new_folder_name = "test1"
+    new_folder_path = f"{cur_folder_path}{new_folder_name}/"
+
+    folder_id, _ = await check_folder_by_path_and_chat_id(
         session   = session,
-        path = new_folder_path,
+        path      = new_folder_path,
         chat_id   = user_chat_id
     )
 
     assert folder_id is None
 
-    new_folder = Folder(
-            user_id          = 1,
-            parent_folder_id = folder.id,
-            folder_name      = new_folder_name,
-            full_path        = new_folder_path
+    # Create a new  folder
+    new_folder_id = await create_folder(
+        user_id         = user_id,
+        par_folder_id   = root_folder.id,
+        new_folder_name = new_folder_name,
+        new_folder_path = new_folder_path
     )
     
-    new_folder_id = await create_new_folder(
-        session    = session,
-        new_folder = new_folder,
-    )
-    
+    # Move user to the new folder
     await set_user_folder(
         session   = session,
         chat_id   = user_chat_id,

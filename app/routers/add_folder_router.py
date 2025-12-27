@@ -6,7 +6,7 @@ from aiogram.fsm.state import StatesGroup, State
 
 from ..db.db import get_session
 from ..db.models import Folder
-from ..db.db_interaction import check_folder_by_chat_id, check_folder_by_path_and_chat, create_new_folder, set_user_folder
+from ..db.db_interaction import check_cur_folder_by_chat_id, check_folder_by_path_and_chat_id, create_new_folder, set_user_folder
 
 from app.common import render_keyboard
 
@@ -30,7 +30,7 @@ async def handle_add_folder(callback: CallbackQuery, state: State):
     
     async with get_session() as session:
         
-        folder, user_id = await check_folder_by_chat_id(
+        folder, user_id = await check_cur_folder_by_chat_id(
             session = session,
             chat_id = callback.message.chat.id
         )
@@ -58,7 +58,7 @@ async def providing_folder_name(message: Message, state: State):
     
     async with get_session() as session:
         
-        folder_id, is_user = await check_folder_by_path_and_chat(
+        folder_id, is_user = await check_folder_by_path_and_chat_id(
             session   = session,
             full_path = new_folder_path,
             chat_id   = message.chat.id
