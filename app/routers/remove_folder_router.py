@@ -7,11 +7,9 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.state import StatesGroup, State
 
-from sqlmodel import select, update, delete
-from sqlalchemy.orm import selectinload
-
 from ..filters.allowed_users import userIsAllowed, isPrivate
-from ..db import *
+from ..db.db import get_session
+from ..db.db_interaction import delete_folder_by_id, move_file_folder_links_up, check_cur_folder_by_chat_id, set_user_folder
 
 from ..keyboards.inline_kb import confirm_folder_deleting_button
 from app.common import render_keyboard
@@ -69,50 +67,37 @@ async def handle_delete_folder(callback: CallbackQuery, state: State):
     
     state_data = await state.get_data()
     par_folder_id = state_data["par_folder_id"]
+    cur_folder_id = state_data["cur_folder_id"]
 
     moved_count = 0
 
     async with get_session() as session:
         
         if confirmation:
-            # Update FileFolder links
-            update_links_result = await session.execute(
-                update(FileFolder)
-                .where(
-                    FileFolder.folder_id == (
-                        select(User.cur_folder_id)
-                        .where(User.chat_id == callback.message.chat.id)
-                        .scalar_subquery()
-                    )
-                )
-                .values(folder_id=par_folder_id)
-                .returning(FileFolder.file_id)
-            )
-            moved_files = update_links_result.scalars().all()
-            moved_count = len(moved_files)
 
-            # Now delete folder
-            await session.execute(
-                delete(Folder)
-                .where(Folder.id == cur_folder_id)
+            # Update FileFolder links
+            moved_count = await move_file_folder_links_up(
+                session       = session,
+                chat_id       = callback.message.chat.id,
+                par_folder_id = par_folder_id
             )
-            
-            print(f"Successfully deleted folder {cur_folder_id}\n"
-                  f"Moved files count : {moved_count}")
-            
+
+
             # Update User's current folder
-            await session.execute(
-                update(User)
-                .where(User.chat_id == callback.message.chat.id)
-                .values(cur_folder_id = par_folder_id)
+            await set_user_folder(
+                session   = session, 
+                chat_id   = callback.message.chat.id, 
+                folder_id = par_folder_id
             )
             
-            await session.flush()
-            
-            cur_folder_id = par_folder_id 
+            # Delete folder
+            await delete_folder_by_id(session = session, folder_id = cur_folder_id)
 
         cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
-
+    
+    print(f"Successfully deleted folder {cur_folder_id}\n"
+                  f"Moved files count : {moved_count}")
+            
     if confirmation:
         await callback.answer(
             f"Folder deleted!"

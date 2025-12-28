@@ -1,10 +1,10 @@
-import os
 from typing import Optional
 
-from sqlmodel import select, update, func
+from sqlmodel import select, update, func, delete
 from ..db import *
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 async def create_new_user_with_folder(session: AsyncSession, user_chat_id: int, user_name: str):
     
@@ -55,6 +55,8 @@ async def check_cur_folder_by_chat_id(session: AsyncSession, chat_id: int) -> tu
     folder_result = await session.execute(
         select(Folder, User.id)
         .join(User, User.cur_folder_id == Folder.id)
+        .options(selectinload(Folder.child_folders))
+        .options(selectinload(Folder.parent_folder))
         .where(User.chat_id == chat_id)
     )
     folder, user_id = folder_result.one_or_none()
@@ -84,6 +86,16 @@ async def check_folder_by_path_and_chat_id(session: AsyncSession, path: str, cha
         folder_id = folder.id
     
     return folder_id, is_user
+
+async def check_file(session: AsyncSession, file_id: int) -> tuple[Optional[int], Optional[int]]:
+    
+    file_result = await session.execute(
+            select(File.file_type, File.tg_id)
+            .where(File.id == file_id)
+        )
+    file_type_id, file_tg_id = file_result.one_or_none()
+        
+    return file_type_id, file_tg_id
 
 async def check_file_folder_link(
           session:       AsyncSession,
@@ -177,17 +189,32 @@ async def create_new_folder(session: AsyncSession, new_folder: Folder):
 
 async def set_user_folder(session: AsyncSession, chat_id: int, folder_id: int):
     # Get user
-    user_result = await session.execute(
-        select(User)
+    await session.execute(
+        update(User)
         .where(User.chat_id == chat_id)
+        .values(cur_folder_id = folder_id)
     )
-    user = user_result.scalars().one_or_none()
 
-    # Set new cur_folder_id value
-    user.cur_folder_id = folder_id
+async def move_file_folder_links_up(session: AsyncSession, chat_id: int, par_folder_id: int) -> int:
     
-    await session.flush()
-        
+    # Update FileFolder links
+    update_links_result = await session.execute(
+        update(FileFolder)
+        .where(
+            FileFolder.folder_id == (
+                select(User.cur_folder_id)
+                .where(User.chat_id == chat_id)
+                .scalar_subquery()
+            )
+        )
+        .values(folder_id = par_folder_id)
+        .returning(FileFolder.file_id)
+    )
+
+    moved_files = update_links_result.scalars().all()
+    moved_count = len(moved_files)
+    
+    return moved_count
 
 async def move_file_folder_links(
                 session:          AsyncSession,
@@ -231,6 +258,51 @@ async def update_folder_name_and_path(
         .values(
             full_path=func.replace(Folder.full_path, old_path, new_path)
         )
+    )
+
+    await session.flush()
+
+async def delete_link(
+            session:   AsyncSession, 
+            file_id:   int, 
+            folder_id: int
+        ) -> bool:
+
+        link_result = await session.execute(
+            select(FileFolder)
+            .where(
+                FileFolder.file_id == file_id,
+                FileFolder.folder_id == folder_id
+            )
+        )
+        link = link_result.scalars().one_or_none()
+        
+        if link:
+            await session.delete(link)
+            await session.flush()
+        
+        return True if link else False 
+
+async def change_user_cur_folder_to_upper_one(session: AsyncSession, chat_id: int) -> tuple[Optional[int], Optional[User]]:
+    
+    par_folder_result = await session.execute(
+        select(Folder.parent_folder_id, User)
+        .join(User, User.cur_folder_id == Folder.id)
+        .where(User.chat_id == chat_id)
+    )
+    par_folder_id, user = par_folder_result.one_or_none()
+
+    if user and (par_folder_id is not None):
+        user.cur_folder_id = par_folder_id
+        await session.flush()
+
+    return par_folder_id, user
+
+async def delete_folder_by_id(session: AsyncSession, folder_id: int):
+    
+    await session.execute(
+        delete(Folder)
+        .where(Folder.id == folder_id)
     )
 
     await session.flush()

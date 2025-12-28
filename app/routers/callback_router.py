@@ -4,9 +4,9 @@ from aiogram import Router, Bot
 from aiogram.types import CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
 
-from sqlmodel import select
+from ..db.db_interaction import check_file, delete_link, set_user_folder, change_user_cur_folder_to_upper_one
+from ..db.db import get_session, MEDIA_CONFIG
 
-from ..db import *
 from ..keyboards.inline_kb import delete_file_button
 from app.common import render_keyboard
 
@@ -29,32 +29,28 @@ async def handle_get_media(callback: CallbackQuery, bot: Bot):
         return
     
     async with get_session() as session:
-        file_result = await session.execute(
-            select(File)
-            .where(File.id == file_id)
-        )
-        file = file_result.scalars().one_or_none()
+        file_type_id, file_tg_id = await check_file(session = session, file_id = file_id)
+    
+    if not file_type_id:
+        await callback.answer("File not found", show_alert=True)
+        return
         
-        if not file:
-            await callback.answer("File not found", show_alert=True)
-            return
-            
-        keyboard = await delete_file_button(
-            file_id   = file_id,
-            folder_id = cur_folder_id
-        )
-        
-        # Send media based on type
-        full_file_type = SHORTCUT_TO_TYPE_BY_ID[file.file_type]
-        send_method    = getattr(bot, f"send_{full_file_type}")
+    keyboard = await delete_file_button(
+        file_id   = file_id,
+        folder_id = cur_folder_id
+    )
+    
+    # Send media based on type
+    full_file_type = SHORTCUT_TO_TYPE_BY_ID[file_type_id]
+    send_method    = getattr(bot, f"send_{full_file_type}")
 
-        await send_method(
-                chat_id=callback.message.chat.id,
-                **{full_file_type: file.tg_id},
-                reply_markup=keyboard
-            )
-        
-        await callback.answer("Media sent!")
+    await send_method(
+            chat_id=callback.message.chat.id,
+            **{full_file_type: file_tg_id},
+            reply_markup=keyboard
+        )
+    
+    await callback.answer("Media sent!")
 
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "df'))
 async def handle_delete_media(callback: CallbackQuery):
@@ -67,44 +63,31 @@ async def handle_delete_media(callback: CallbackQuery):
         return
     
     async with get_session() as session:
-        link_result = await session.execute(
-            select(FileFolder)
-            .where(
-                FileFolder.file_id == file_id,
-                FileFolder.folder_id == folder_id
-            )
+
+        is_link = await delete_link(
+            session   = session, 
+            file_id   = file_id, 
+            folder_id = folder_id
         )
-        link = link_result.scalars().one_or_none()
         
-        if not link:
+        if not is_link:
             await callback.answer("File not found", show_alert=True)
             return
-        
-        await session.delete(link)
-        await session.commit()
         
     await callback.answer("File deleted successfuly.", show_alert=True)
 
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "d"'))
-async def handle_go_downer_folder(callback: CallbackQuery, bot: Bot):
+async def handle_go_downer_folder(callback: CallbackQuery):
     data          = json.loads(callback.data)
-    cur_folder_id = data.get("f")
+    folder_id = data.get("f")
 
     async with get_session() as session:
     
-        # Get user
-        user_result = await session.execute(
-            select(User)
-            .where(User.chat_id == callback.message.chat.id)
+        await set_user_folder(
+            session   = session, 
+            chat_id   = callback.message.chat.id, 
+            folder_id = folder_id
         )
-        cur_user = user_result.scalars().one_or_none()
-
-        if not cur_user:
-            await callback.answer("User not found", show_alert=True)
-            return
-
-        cur_user.cur_folder_id = cur_folder_id
-        await session.commit()
         
         cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
 
@@ -117,35 +100,23 @@ async def handle_go_downer_folder(callback: CallbackQuery, bot: Bot):
         
 
 @callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "u"'))
-async def handle_go_to_upper_folder(callback: CallbackQuery, bot: Bot):
-    data          = json.loads(callback.data)
-    cur_folder_id = data.get("f")
+async def handle_go_to_upper_folder(callback: CallbackQuery):
     
     async with get_session() as session:
-        par_folder_result = await session.execute(
-            select(Folder.parent_folder_id)
-            .where(Folder.id == cur_folder_id)
-        )
-        par_folder_id = par_folder_result.scalars().one_or_none()
         
-        # Check if we're at root (no parent)
-        if par_folder_id is None:
-            await callback.answer("Can't go up: Current folder is the root", show_alert=True)
-            return
-    
-        # Get user
-        user_result = await session.execute(
-            select(User)
-            .where(User.chat_id == callback.message.chat.id)
+        par_folder_id, user = await change_user_cur_folder_to_upper_one(
+            session = session, 
+            chat_id = callback.message.chat.id,
         )
-        cur_user = user_result.scalars().one_or_none()
 
-        if not cur_user:
+        if not user:
             await callback.answer("User not found", show_alert=True)
             return
 
-        cur_user.cur_folder_id = par_folder_id
-        await session.commit()
+        # Check if we're at root (no par_folder_id)
+        if par_folder_id is None:
+            await callback.answer("Can't go up: Current folder is the root", show_alert=True)
+            return
         
         par_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
         

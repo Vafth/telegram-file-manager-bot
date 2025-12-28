@@ -59,9 +59,9 @@ async def providing_folder_name(message: Message, state: State):
     async with get_session() as session:
         
         folder_id, is_user = await check_folder_by_path_and_chat_id(
-            session   = session,
-            full_path = new_folder_path,
-            chat_id   = message.chat.id
+            session = session,
+            path    = new_folder_path,
+            chat_id = message.chat.id
         )
 
         if folder_id:

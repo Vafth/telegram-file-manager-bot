@@ -37,6 +37,10 @@ async def test_file_moving(session, two_files_in_root_created, create_folder):
         folder_id = new_folder_id
     )
 
+    # Extra: Check file's existing
+    first_file_type_id, first_file_tg_id   = await check_file(session = session, file_id = 1)
+    second_file_type_id, second_file_tg_id = await check_file(session = session, file_id = 2)
+
 #---
     # Get user
     user_result = await session.execute(
@@ -64,6 +68,9 @@ async def test_file_moving(session, two_files_in_root_created, create_folder):
     first_file, second_file = files
 
     assert user.cur_folder_id == new_folder.id
+    assert (first_file.tg_id, second_file.tg_id) == (first_file_tg_id, second_file_tg_id)
+    assert (first_file.file_type, second_file.file_type) == (first_file_type_id, second_file_type_id)
+    
     assert first_file.file_folders[0].folder_id == second_file.file_folders[0].folder_id == new_folder.id
     assert root_folder.file_folders == []
     assert new_folder.file_folders[0].file_name == file_name

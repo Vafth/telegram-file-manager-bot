@@ -12,7 +12,7 @@ async def build_folder(folders_in_folder: list[Folder], files_in_folder: list[Tr
     row_len = 1 + (len_all_objects)//6
     
     label = "../"
-    callback_data = json.dumps({"a": "u", "f": cur_folder_id}) 
+    callback_data = json.dumps({"a": "u"}) 
     
     button = InlineKeyboardButton(text=label, callback_data=callback_data)
     keyboard.inline_keyboard.append([button])
