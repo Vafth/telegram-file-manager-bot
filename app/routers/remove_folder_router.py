@@ -1,15 +1,15 @@
-from dotenv import load_dotenv
-import json
-load_dotenv()
-
 from aiogram import Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.state import StatesGroup, State
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
+from ..filters.allowed_callback_query import CallbackDataParser
+
 from ..db.db import get_session
-from ..db.db_interaction import delete_folder_by_id, move_file_folder_links_up, check_cur_folder_by_chat_id, set_user_folder
+from ..db.db_interaction.delete import delete_folder_by_id
+from ..db.db_interaction.update import move_file_folder_links_up, set_user_folder
+from ..db.db_interaction.check import check_cur_folder_by_chat_id
 
 from ..keyboards.inline_kb import confirm_folder_deleting_button
 from app.common import render_keyboard
@@ -60,10 +60,10 @@ async def handle_remove_folder_cmd(message: Message, state: State):
     
     await state.set_state(FolderDeleting.par_folder_id) 
     
-@remove_folder_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "cd'), FolderDeleting.par_folder_id)
-async def handle_delete_folder(callback: CallbackQuery, state: State):
-    data = json.loads(callback.data)
-    confirmation = data.get("c")
+@remove_folder_router.callback_query(CallbackDataParser(action = "cd"), FolderDeleting.par_folder_id)
+async def handle_delete_folder(callback: CallbackQuery, state: State, callback_data: list[bool]):
+    
+    confirmation = callback_data[0]
     
     state_data = await state.get_data()
     par_folder_id = state_data["par_folder_id"]
@@ -82,27 +82,38 @@ async def handle_delete_folder(callback: CallbackQuery, state: State):
                 par_folder_id = par_folder_id
             )
 
-
-            # Update User's current folder
-            await set_user_folder(
-                session   = session, 
-                chat_id   = callback.message.chat.id, 
-                folder_id = par_folder_id
-            )
-            
-            # Delete folder
-            await delete_folder_by_id(session = session, folder_id = cur_folder_id)
+            if moved_count >= 0:
+                
+                # Update User's current folder
+                await set_user_folder(
+                    session   = session, 
+                    chat_id   = callback.message.chat.id, 
+                    folder_id = par_folder_id
+                )
+                
+                # Delete folder
+                await delete_folder_by_id(session = session, folder_id = cur_folder_id)
 
         cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=callback.message.chat.id)
     
-    print(f"Successfully deleted folder {cur_folder_id}\n"
-                  f"Moved files count : {moved_count}")
             
-    if confirmation:
+    if confirmation and (moved_count >= 0):
+        print(
+            f"Successfully deleted folder {cur_folder_id}\n"
+            f"Moved files count : {moved_count}"
+        )
+
         await callback.answer(
             f"Folder deleted!"
             f"{moved_count} files were successfully moved!", 
             show_alert=True
+        )
+
+    elif moved_count < 0 :
+        await callback.answer(
+           f"Can't delete current folder!\n"
+           f"Overlap files are in the parent folder.",
+           show_alert=True
         )
 
     await callback.message.edit_text(

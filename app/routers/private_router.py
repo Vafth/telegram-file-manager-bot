@@ -4,7 +4,7 @@ from aiogram.filters import CommandStart, Command
 from ..filters.allowed_users import userIsAllowed, isPrivate
 
 from ..db.db import get_session
-from ..db.db_interaction import create_new_user_with_folder
+from ..db.db_interaction.create import try_create_user_file_and_file_folder_link
 
 from app.common import render_keyboard, help_guide
 
@@ -23,10 +23,10 @@ async def start_cmd(message: Message):
     
     async with get_session() as session:
 
-        cur_user_check = await create_new_user_with_folder(
-                session   = session, 
-                chat_id   = chat_id, 
-                user_name = user_name
+        cur_user_check = await try_create_user_file_and_file_folder_link(
+                session      = session, 
+                user_chat_id = chat_id, 
+                user_name    = user_name
         )
 
         if not cur_user_check:

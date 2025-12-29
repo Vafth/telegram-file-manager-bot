@@ -1,7 +1,5 @@
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-import json
-from ..db import *
 
 def build_reply_kb(key_labels: list[str], cols: int = 4, one_time: bool = True) -> ReplyKeyboardMarkup: 
     if not key_labels:

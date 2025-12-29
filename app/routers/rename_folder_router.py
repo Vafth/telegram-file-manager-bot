@@ -5,7 +5,8 @@ from aiogram.fsm.state import StatesGroup, State
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db.db import get_session
-from ..db.db_interaction import check_cur_folder_by_chat_id, update_folder_name_and_path
+from ..db.db_interaction.check import check_cur_folder_by_chat_id
+from ..db.db_interaction.update import update_folder_name_and_path
 
 from app.common import render_keyboard
 
@@ -14,7 +15,7 @@ rename_folder_router.message.filter(userIsAllowed(), isPrivate())
 
 class FolderRenaming(StatesGroup):
     folder_id = State()
-    old_path = State()
+    old_path  = State()
 
 @rename_folder_router.message(Command("rn"))
 async def handle_rename_folder_cmd(message: Message, state: State):

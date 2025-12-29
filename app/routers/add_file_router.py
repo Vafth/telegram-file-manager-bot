@@ -5,8 +5,11 @@ from aiogram.filters import or_f
 from aiogram.fsm.state import StatesGroup, State
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
+
 from ..db.db import get_session, MEDIA_CONFIG
-from ..db.db_interaction import check_file_folder_link, create_new_file
+from ..db.db_interaction.check import check_user_file_and_file_folder_link 
+from ..db.db_interaction.create import create_new_file
+
 from ..db.models import File
 
 from app.common import render_keyboard
@@ -64,7 +67,7 @@ async def uploading_via_private(message: Message, state: State):
     await state.update_data(file_type=file_shortcut)
     
     async with get_session() as session:
-        is_exist, cur_folder_id, cur_user_id, file_id = await check_file_folder_link(
+        is_exist, cur_folder_id, cur_user_id, file_id = await check_user_file_and_file_folder_link(
             session       = session,
             chat_id       = chat_id,
             file_tg_id    = file_tg_id,
@@ -72,10 +75,15 @@ async def uploading_via_private(message: Message, state: State):
         )
 
     if is_exist:
-        await message.reply(f"That File already is in the current folder!")
+        await message.reply(f"That file already is in the current folder!")
         await state.clear()
         return
-            
+    
+    if not cur_user_id:
+        await message.reply("User not found!")
+        await state.clear()
+        return
+    
     await message.reply(f"Provide the name of that File:")
     await state.update_data(
         tg_file_id   = file_tg_id,

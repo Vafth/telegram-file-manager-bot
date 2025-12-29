@@ -46,7 +46,7 @@ async def build_folder(folders_in_folder: list[Folder], files_in_folder: list[Tr
     row = []
 
     label = "Add folder"
-    callback_data = json.dumps({"a": "add_fd", "fd_id": cur_folder_id})
+    callback_data = json.dumps({"a": "af", "fd_id": cur_folder_id})
 
     button = InlineKeyboardButton(text=label, callback_data=callback_data)
     keyboard.inline_keyboard.append([button])
@@ -87,7 +87,7 @@ async def build_folder_legacy(folders_in_folder: list[Folder], files_in_folder: 
             row = []
 
     label = "Add folder"
-    callback_data = json.dumps({"a": "add_fd", "fd_id": cur_folder_id})
+    callback_data = json.dumps({"a": "af", "f": cur_folder_id})
 
     button = InlineKeyboardButton(text=label, callback_data=callback_data)
     keyboard.inline_keyboard.append([button])
@@ -145,36 +145,6 @@ async def confirm_file_moving_button(folder_id:int):
     
     button = InlineKeyboardButton(text=label, callback_data=callback_data)
     keyboard.inline_keyboard.append([button])
-
-    return keyboard
-
-
-async def build_nested_folders(folders_in_folder: list[Folder], parrent_folder_id: int, i: int = 1): 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
-
-    for i, folder in enumerate(folders_in_folder):
-        label = f"/{folder.folder_name}/.."
-        callback_data = json.dumps({"a": "get_folder", "folder_id": folder.id})
-
-        button = InlineKeyboardButton(text=label, callback_data=callback_data)
-        keyboard.inline_keyboard.append([button])
-            
-    row: list[InlineKeyboardButton] = []
-    label = "Go Back"
-    callback_data = json.dumps({"a": "rerender_inline_nested_folders", "parrent_folder_id": parrent_folder_id, })
-    button = InlineKeyboardButton(text=label, callback_data=callback_data)
-    row.append(button)
-    label = "Cancel"
-    callback_data = json.dumps({"a": "cancel_choising_folder_process"})
-    button = InlineKeyboardButton(text=label, callback_data=callback_data)
-    row.append(button)
-    label = "Skip"
-    callback_data = json.dumps({"a": "skip_choising_folder_process"})
-    button = InlineKeyboardButton(text=label, callback_data=callback_data)
-    row.append(button)
-    
-    keyboard.inline_keyboard.append(row)
-    row = []
 
     return keyboard
     

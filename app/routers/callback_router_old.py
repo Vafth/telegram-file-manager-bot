@@ -1,3 +1,5 @@
+import json
+
 from aiogram import Router, Bot
 from aiogram.types import CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
@@ -7,7 +9,6 @@ from ..db.db_interaction.check import check_file_by_id
 from ..db.db_interaction.delete import delete_file_folder_link
 from ..db.db_interaction.update import set_user_folder, change_user_cur_folder_to_upper_one
 
-from ..filters.allowed_callback_query import CallbackDataParser
 from ..keyboards.inline_kb import delete_file_button
 from app.common import render_keyboard
 
@@ -19,9 +20,11 @@ class FolderDeleting(StatesGroup):
     
 SHORTCUT_TO_TYPE_BY_ID = {item[2]: item[1] for item in MEDIA_CONFIG}
 
-@callback_router.callback_query(CallbackDataParser(action="g"))
-async def handle_get_media(callback: CallbackQuery, bot: Bot, callback_data: list[str]):
-    file_id, cur_folder_id = callback_data
+@callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "g'))
+async def handle_get_media(callback: CallbackQuery, bot: Bot):
+    data          = json.loads(callback.data)
+    file_id       = data.get("f")
+    cur_folder_id = data.get("o")
 
     if not file_id:
         await callback.answer("Invalid file.", show_alert=True)
@@ -51,9 +54,11 @@ async def handle_get_media(callback: CallbackQuery, bot: Bot, callback_data: lis
     
     await callback.answer("Media sent!")
 
-@callback_router.callback_query(CallbackDataParser(action="df"))
-async def handle_delete_media(callback: CallbackQuery, callback_data: list[int]):
-    file_id, folder_id = callback_data
+@callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "df'))
+async def handle_delete_media(callback: CallbackQuery):
+    data      = json.loads(callback.data)
+    file_id   = data.get("f")
+    folder_id = data.get("o")
     
     if not file_id:
         await callback.answer("Invalid file.", show_alert=True)
@@ -73,9 +78,10 @@ async def handle_delete_media(callback: CallbackQuery, callback_data: list[int])
         
     await callback.answer("File deleted successfuly.", show_alert=True)
 
-@callback_router.callback_query(CallbackDataParser(action="d"))
-async def handle_go_downer_folder(callback: CallbackQuery, callback_data: list[int]):
-    folder_id = callback_data[0]
+@callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "d"'))
+async def handle_go_downer_folder(callback: CallbackQuery):
+    data      = json.loads(callback.data)
+    folder_id = data.get("f")
 
     async with get_session() as session:
     
@@ -95,9 +101,9 @@ async def handle_go_downer_folder(callback: CallbackQuery, callback_data: list[i
     await callback.answer("Folder changed!")
         
 
-@callback_router.callback_query(CallbackDataParser(action= "u"))
-async def handle_go_to_upper_folder(callback: CallbackQuery, callback_data: list[None]):
-
+@callback_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "u"'))
+async def handle_go_to_upper_folder(callback: CallbackQuery):
+    
     async with get_session() as session:
         
         par_folder_id = await change_user_cur_folder_to_upper_one(

@@ -12,9 +12,9 @@ from .routers import *
 from .db.db import engine, create_db_and_tables
 
 load_dotenv()
-TOKEN = os.getenv("BOT_TOKEN")
-ADMINS = json.loads(os.getenv("ADMIN_LIST"))
-GROUPS = json.loads(os.getenv("GROUP_LIST"))
+TOKEN           = os.getenv("BOT_TOKEN")
+ADMINS          = json.loads(os.getenv("ADMIN_LIST"))
+GROUPS          = json.loads(os.getenv("GROUP_LIST"))
 ALLOWED_UPDATES = json.loads(os.getenv("ALLOWED_UPDATES"))
 
 bot = Bot(token=TOKEN)
@@ -24,19 +24,20 @@ bot.my_group_list = GROUPS
 async def start_bot(bot: Bot):
     if bot.my_admin_list:
         await bot.send_message(bot.my_admin_list[0], "Bot has awakened.")
+    
     commands = [
-        BotCommand(command="start", description="Start Command"),
-        BotCommand(command="help", description="User Guide"),
-        BotCommand(command="fe", description="Open File System"),
-        BotCommand(command="rm", description="Remove current folder - all files would be moved to the upper folder"),
-        BotCommand(command="rn", description="Rename current folder"),
-        BotCommand(command="mv", description="Move all files to the specified folder using the provided full path"),
+        BotCommand(command = "start", description = "Start Command"),
+        BotCommand(command = "help",  description = "User Guide"),
+        BotCommand(command = "fe",    description = "Open File Explorer"),
+        BotCommand(command = "rm",    description = "Remove current folder"),
+        BotCommand(command = "rn",    description = "Rename current folder"),
+        BotCommand(command = "mv",    description = "Move all files to folder"),
     ]
 
-    await bot.delete_my_commands(scope=BotCommandScopeChat(chat_id=bot.my_admin_list[0]))
-    await bot.set_my_commands(commands, scope=BotCommandScopeChat(chat_id=bot.my_admin_list[0]))
+    await bot.delete_my_commands(scope = BotCommandScopeChat(chat_id = bot.my_admin_list[0]))
+    await bot.set_my_commands(commands, scope = BotCommandScopeChat(chat_id = bot.my_admin_list[0]))
     
-    print("Bot started and Menu Commands updated.")
+    print("Bot started")
     await create_db_and_tables()
 
 async def stop_bot(bot: Bot):

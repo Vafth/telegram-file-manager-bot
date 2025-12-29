@@ -1,28 +1,28 @@
-import json
-
 from aiogram import Router
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.state import StatesGroup, State
 
 from ..db.db import get_session
 from ..db.models import Folder
-from ..db.db_interaction import check_cur_folder_by_chat_id, check_folder_by_path_and_chat_id, create_new_folder, set_user_folder
+from ..db.db_interaction.check import check_cur_folder_by_chat_id, check_folder_by_path_and_chat_id
+from ..db.db_interaction.create import create_new_folder
+from ..db.db_interaction.update import set_user_folder
 
 from app.common import render_keyboard
+from ..filters.allowed_callback_query import CallbackDataParser
 
 add_folder_router = Router()
 
 class AddFolderStates(StatesGroup):
-    fd_id = State()
+    fd_id   = State()
     fd_path = State()
     fd_name = State()
     user_id = State()
     
-@add_folder_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "add_fd"'))
-async def handle_add_folder(callback: CallbackQuery, state: State):
+@add_folder_router.callback_query(CallbackDataParser(action= "a"))
+async def handle_add_folder(callback: CallbackQuery, state: State, callback_data: list[int]):
 
-    data          = json.loads(callback.data)
-    par_folder_id = data.get("fd_id")
+    par_folder_id = callback_data[0]
     
     if not par_folder_id:
         await callback.answer("Invalid parent folder.", show_alert=True)

@@ -1,6 +1,8 @@
 from sqlmodel import select
 from sqlalchemy.orm import selectinload
 from app.db import *
+from app.db.db_interaction.update import set_user_folder, try_move_file_folder_links
+from app.db.db_interaction.check import check_file_by_id
 import pytest
 
 @pytest.mark.asyncio
@@ -24,7 +26,7 @@ async def test_file_moving(session, two_files_in_root_created, create_folder):
     )
 
     # Moving files from the root folder to the new one part two
-    moved_count = await move_file_folder_links(
+    moved_count = await try_move_file_folder_links(
         session          = session,
         folder_id        = cur_folder_id,
         target_folder_id = new_folder_id,
@@ -38,8 +40,8 @@ async def test_file_moving(session, two_files_in_root_created, create_folder):
     )
 
     # Extra: Check file's existing
-    first_file_type_id, first_file_tg_id   = await check_file(session = session, file_id = 1)
-    second_file_type_id, second_file_tg_id = await check_file(session = session, file_id = 2)
+    first_file_type_id, first_file_tg_id   = await check_file_by_id(session = session, file_id = 1)
+    second_file_type_id, second_file_tg_id = await check_file_by_id(session = session, file_id = 2)
 
 #---
     # Get user

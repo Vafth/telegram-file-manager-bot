@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 
 import pytest
 
-from app.db.db_interaction import create_new_user_with_folder, create_new_folder, create_new_file
+from app.db.db_interaction.create import try_create_user_file_and_file_folder_link, create_new_folder, create_new_file
 from app.db.models import Folder, MediaType, File
 
 @pytest.fixture(scope="session")
@@ -60,7 +60,7 @@ async def create_user(session):
             user_name:    str   = "test_user"
         ):
         
-        await create_new_user_with_folder(
+        await try_create_user_file_and_file_folder_link(
             session      = session,
             user_chat_id = user_chat_id,
             user_name    = user_name

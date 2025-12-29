@@ -1,15 +1,15 @@
-from dotenv import load_dotenv
-import json
-load_dotenv()
-
 from aiogram import Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.state import StatesGroup, State
 
 from ..filters.allowed_users import userIsAllowed, isPrivate
+from ..filters.allowed_callback_query import CallbackDataParser
+
 from ..db.db import get_session
-from ..db.db_interaction import check_user, get_folder_id_by_path_and_chat_id, move_file_folder_links
+from ..db.db_interaction.check import check_user
+from ..db.db_interaction.get import get_cur_folder_id_by_path_and_chat_id
+from ..db.db_interaction.update import try_move_file_folder_links
 
 from ..keyboards.inline_kb import confirm_file_moving_button
 from app.common import render_keyboard
@@ -57,14 +57,14 @@ async def handle_target_folder_path(message: Message, state: State):
 
     async with get_session() as session:
 
-        target_folder_id = await get_folder_id_by_path_and_chat_id(
+        target_folder_id = await get_cur_folder_id_by_path_and_chat_id(
             session = session,
             chat_id = message.chat.id,
             path    = target_folder_path
         )
          
     if not target_folder_id:
-        await message.answer(f"Moving canceled: Target folder {target_folder_path} not found")
+        await message.answer(f"Moving canceled: Target folder `{target_folder_path}` not found")
         await state.clear()
         return
     
@@ -83,10 +83,10 @@ async def handle_target_folder_path(message: Message, state: State):
     
     await state.set_state(FoldersMoving.confirm) 
     
-@move_router.callback_query(lambda c: c.data and c.data.startswith('{"a": "cm'), FoldersMoving.confirm)
-async def handle_confirm_for_move_files(callback: CallbackQuery, state: State):
-    data         = json.loads(callback.data)
-    confirmation = data.get("c")
+@move_router.callback_query(CallbackDataParser(action = "cm"), FoldersMoving.confirm)
+async def handle_confirm_for_move_files(callback: CallbackQuery, state: State, callback_data: list[bool]):
+
+    confirmation = callback_data[0]
     
     state_data         = await state.get_data()
     cur_folder_id      = state_data["cur_folder_id"]
@@ -99,18 +99,25 @@ async def handle_confirm_for_move_files(callback: CallbackQuery, state: State):
 
         if confirmation:
     
-            moved_count = await move_file_folder_links(
+            moved_count = await try_move_file_folder_links(
                 session          = session,
                 folder_id        = cur_folder_id,
                 target_folder_id = target_folder_id,
             )
+            
+        cur_folder_path, keyboard = await render_keyboard(session = session, chat_id = callback.message.chat.id)    
 
-        cur_folder_path, keyboard = await render_keyboard(session = session, chat_id = callback.message.chat.id)
-
-    if confirmation:
+    if confirmation and (moved_count >= 0):
         await callback.answer(
-            f"{moved_count} files were successfully moved"
-            f"into folder {target_folder_path}!", 
+            f"{moved_count} files were successfully moved\n"
+            f"into folder `{target_folder_path}`", 
+            show_alert=True
+        )
+    
+    elif confirmation and (moved_count < 0):
+        await callback.answer(
+            f"Can't move files into `{target_folder_path}`!\n"
+            f"There are overlap files.",
             show_alert=True
         )
     

@@ -1,6 +1,9 @@
 from sqlmodel import select
 from sqlalchemy.orm import selectinload
 from app.db import *
+from app.db.db_interaction.check import check_cur_folder_by_chat_id, check_folder_by_path_and_chat_id
+from app.db.db_interaction.update import set_user_folder
+
 import pytest
 
 @pytest.mark.asyncio
@@ -15,7 +18,6 @@ async def test_one_folder_adding(create_user, create_folder, session):
         session = session,
         chat_id = user_chat_id
     )
-
     assert root_folder is not None
     
     # Check if the folder with target path are not in the db yet
@@ -28,17 +30,16 @@ async def test_one_folder_adding(create_user, create_folder, session):
         path      = new_folder_path,
         chat_id   = user_chat_id
     )
-
     assert folder_id is None
 
-    # Create a new  folder
+    # Create a new folder
     new_folder_id = await create_folder(
         user_id         = user_id,
         par_folder_id   = root_folder.id,
         new_folder_name = new_folder_name,
         new_folder_path = new_folder_path
     )
-    
+
     # Move user to the new folder
     await set_user_folder(
         session   = session,
@@ -47,6 +48,9 @@ async def test_one_folder_adding(create_user, create_folder, session):
     )
 
 #---
+    # Refresh the root_folder so it re-queries its children
+    await session.refresh(root_folder)
+    
     user_result = await session.execute(
         select(User)
         .options(selectinload(User.folders))
@@ -60,6 +64,8 @@ async def test_one_folder_adding(create_user, create_folder, session):
     )
     folders = folder_result.scalars().all()
 
+    root_folder, new_folder = folders
+
     assert user is not None
     assert user.folders is not None
     assert user.folders[1].folder_name      == new_folder_name
@@ -67,6 +73,6 @@ async def test_one_folder_adding(create_user, create_folder, session):
     assert user.folders[1].parent_folder_id == 1
     assert user.cur_folder_id               == folders[1].id
 
-    assert folders[0].id == folders[1].parent_folder_id
-    assert folders[0].child_folders[0] == folders[1]
-    assert folders[1].parent_folder == folders[0]
+    assert root_folder.id == new_folder.parent_folder_id
+    assert new_folder.parent_folder == root_folder
+    assert root_folder.child_folders[0] == new_folder

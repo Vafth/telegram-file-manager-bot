@@ -1,6 +1,7 @@
 from sqlmodel import select
 from sqlalchemy.orm import selectinload
 from app.db import *
+from app.db.db_interaction.update import set_user_folder, update_folder_name_and_path
 import pytest
 
 @pytest.mark.asyncio
