@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 from sqlmodel import select, and_
 from ..models import User, Folder, File, FileFolder
@@ -31,18 +31,33 @@ async def check_cur_folder_by_chat_id(session: AsyncSession, chat_id: int) -> tu
     
     return folder, user_id
 
-async def check_folder_by_path_and_chat_id(session: AsyncSession, path: str, chat_id: int) -> tuple[Optional[int], bool]:
+async def check_cur_folder_by_path_and_chat_id(session: AsyncSession, path: str, chat_id: int) -> tuple[Optional[int], bool]:
     
     folder, user_id = await check_cur_folder_by_chat_id(session, chat_id)
     
     folder_id = None
     is_user   = True if user_id else False
-
+    print(f"Folder founded path = {folder.full_path}")
     if folder.full_path == path:
         folder_id = folder.id
     
     return folder_id, is_user
 
+async def check_folder_by_path_and_chat_id(session: AsyncSession, path: str, chat_id: int) -> Optional[int]:
+    
+    # looking for a current user's folder 
+    folder_result = await session.execute(
+        select(Folder, User.id)
+        .join(User, User.cur_folder_id == Folder.parent_folder_id)
+        .where(
+            User.chat_id == chat_id,
+            Folder.full_path == path,       
+        )
+    )
+    folder_id = folder_result.scalars().one_or_none()
+    
+    return folder_id 
+    
 async def check_file_by_id(session: AsyncSession, file_id: int) -> tuple[Optional[int], Optional[int]]:
 
     file_result = await session.execute(

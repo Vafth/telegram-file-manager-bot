@@ -6,7 +6,7 @@ from aiogram.fsm.state import StatesGroup, State
 from ..filters.allowed_users import userIsAllowed, isPrivate
 from ..db.db import get_session
 from ..db.db_interaction.check import check_cur_folder_by_chat_id
-from ..db.db_interaction.update import update_folder_name_and_path
+from ..db.db_interaction.update import try_update_folder_name_and_path
 
 from app.common import render_keyboard
 
@@ -15,13 +15,14 @@ rename_folder_router.message.filter(userIsAllowed(), isPrivate())
 
 class FolderRenaming(StatesGroup):
     folder_id = State()
+    par_folder_id = State()
     old_path  = State()
 
 @rename_folder_router.message(Command("rn"))
 async def handle_rename_folder_cmd(message: Message, state: State):
     
     async with get_session() as session:
-        folder = await check_cur_folder_by_chat_id(
+        folder, _ = await check_cur_folder_by_chat_id(
             session = session,
             chat_id = message.chat.id
         )
@@ -37,7 +38,8 @@ async def handle_rename_folder_cmd(message: Message, state: State):
 
     await state.update_data(
         folder_id = folder.id,
-        old_path  = folder.full_path
+        old_path  = folder.full_path,
+        par_folder_id = folder.parent_folder_id
     )    
     await state.set_state(FolderRenaming.folder_id) 
     
@@ -46,6 +48,7 @@ async def handle_rename_folder(message: Message, state: State):
     
     state_data = await state.get_data()
     folder_id  = state_data["folder_id"]
+    par_folder_id  = state_data["par_folder_id"]
     old_path   = state_data["old_path"]
     new_name   = message.text
 
@@ -60,15 +63,22 @@ async def handle_rename_folder(message: Message, state: State):
 
     async with get_session() as session:
 
-        await update_folder_name_and_path(
+        result = await try_update_folder_name_and_path(
             session   = session,
             folder_id = folder_id,
+            par_folder_id = par_folder_id,
             new_name  = new_name,
             old_path  = old_path,
             new_path  = new_path,
-            )
-    
+        )
+
         cur_folder_path, keyboard = await render_keyboard(session=session, chat_id=message.chat.id)
+
+    if result:
+        await message.answer(
+            f"Can't rename current folder\n"
+            f"In the parent folder `{new_name}` already exists"
+        )
 
     await message.reply(
         f"Folder {cur_folder_path}", 

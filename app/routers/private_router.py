@@ -14,7 +14,10 @@ private_router.message.filter(userIsAllowed(), isPrivate())
 @private_router.message(Command("help"))
 async def command_clear(message: Message):
     await message.answer(f"User Guide:")
-    await message.reply(text=help_guide, parse_mode='HTML')
+    await message.reply(
+        text = help_guide, 
+        parse_mode = 'HTML'
+    )
 
 @private_router.message(CommandStart())
 async def start_cmd(message: Message):

@@ -19,7 +19,7 @@ class AddFolderStates(StatesGroup):
     fd_name = State()
     user_id = State()
     
-@add_folder_router.callback_query(CallbackDataParser(action= "a"))
+@add_folder_router.callback_query(CallbackDataParser(action= "af"))
 async def handle_add_folder(callback: CallbackQuery, state: State, callback_data: list[int]):
 
     par_folder_id = callback_data[0]
@@ -40,6 +40,8 @@ async def handle_add_folder(callback: CallbackQuery, state: State, callback_data
         return
     
     await callback.message.answer(f"Provide the new folder name")
+    await callback.answer(f"Provide the new folder name")
+    
     await state.update_data(
         fd_path = folder.full_path,
         fd_id   = folder.id,
@@ -58,7 +60,7 @@ async def providing_folder_name(message: Message, state: State):
     
     async with get_session() as session:
         
-        folder_id, is_user = await check_folder_by_path_and_chat_id(
+        folder_id = await check_folder_by_path_and_chat_id(
             session = session,
             path    = new_folder_path,
             chat_id = message.chat.id
@@ -66,15 +68,7 @@ async def providing_folder_name(message: Message, state: State):
 
         if folder_id:
             await message.answer(
-                f"Folder `{new_folder_path}` already exist.", 
-                show_alert=True
-            )
-            return
-
-        if not is_user:
-            await message.answer(
-                f"User not found.", 
-                show_alert=True
+                f"Folder `{new_folder_path}` already exist."
             )
             return
 

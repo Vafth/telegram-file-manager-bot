@@ -46,7 +46,7 @@ async def build_folder(folders_in_folder: list[Folder], files_in_folder: list[Tr
     row = []
 
     label = "Add folder"
-    callback_data = json.dumps({"a": "af", "fd_id": cur_folder_id})
+    callback_data = json.dumps({"a": "af", "f": cur_folder_id})
 
     button = InlineKeyboardButton(text=label, callback_data=callback_data)
     keyboard.inline_keyboard.append([button])

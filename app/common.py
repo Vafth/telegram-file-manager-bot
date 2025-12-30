@@ -90,11 +90,11 @@ help_guide = """
   • <i>Example:</i> <code>@your_bot /your/saved/gifs/.gif</code>
 
 <b>File Types:</b>
-<b>Animation:</b> <code>.gif</code>
-<b>Video:</b> <code>.mp4</code>
-<b>Photo:</b> <code>.png</code>
-<b>Audio:</b> <code>.mp3</code>
-<b>Sticker:</b> <code>.sti</code>
-<b>Document:</b> <code>.doc</code>
+  <b>Animation:</b> <code>.gif</code>
+  <b>Video:</b>     <code>.mp4</code>
+  <b>Photo:</b>     <code>.png</code>
+  <b>Audio:</b>     <code>.mp3</code>
+  <b>Sticker:</b>   <code>.sti</code>
+  <b>Document:</b>  <code>.doc</code>
 
 """

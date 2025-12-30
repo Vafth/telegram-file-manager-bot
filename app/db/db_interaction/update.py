@@ -72,29 +72,44 @@ async def try_move_file_folder_links(
     
     return moved_count
 
-async def update_folder_name_and_path(
+async def try_update_folder_name_and_path(
             session:   AsyncSession,
             folder_id: int,
+            par_folder_id: int,
             new_name:  str,
             old_path:  str,
             new_path:  str,
-        ):
+        ) -> bool:
     
-    await session.execute(
-        update(Folder)
-        .where(Folder.id == folder_id)
-        .values(folder_name = new_name)
-    )   
-
-    await session.execute(
-        update(Folder)
-        .where(Folder.full_path.startswith(old_path))
-        .values(
-            full_path=func.replace(Folder.full_path, old_path, new_path)
+    folder_in_parent_folder = await session.execute(
+        select(Folder)
+        .where(
+            Folder.parent_folder_id == par_folder_id,
+            Folder.folder_name == new_name
         )
     )
+    folder = folder_in_parent_folder.scalars().one_or_none()
+    print(f"Folder finding result: {folder}, is it exist: {folder is not None}")
+    is_folder = folder is not None
+    
+    if not is_folder:
+        await session.execute(
+            update(Folder)
+            .where(Folder.id == folder_id)
+            .values(folder_name = new_name)
+        )   
 
-    await session.flush()
+        await session.execute(
+            update(Folder)
+            .where(Folder.full_path.startswith(old_path))
+            .values(
+                full_path=func.replace(Folder.full_path, old_path, new_path)
+            )
+        )
+
+        await session.flush()
+    
+    return is_folder 
 
 async def set_user_folder(session: AsyncSession, chat_id: int, folder_id: int):
     # Get user

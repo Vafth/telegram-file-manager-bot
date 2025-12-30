@@ -65,7 +65,7 @@ async def handle_help(inline_query: InlineQuery):
         description="Combine path and extension",
         input_message_content=InputTextMessageContent(message_text="Advanced search: <code>/path/.ext</code>"),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="Try it", switch_inline_query_current_chat="/photos/.jpg")
+            InlineKeyboardButton(text="Try it", switch_inline_query_current_chat="/my/gifs/.gif")
         ]])
     ))
 

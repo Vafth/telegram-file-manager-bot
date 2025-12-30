@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand, BotCommandScopeChat
 
-# Comment out later
 from .routers import *
 
 from .db.db import engine, create_db_and_tables
@@ -58,7 +57,7 @@ dp.include_router(add_file_router)
 dp.include_router(remove_folder_router)
 dp.include_router(rename_folder_router)
 dp.include_router(move_router)
-#dp.include_router(admin_router)
+dp.include_router(admin_router)
 
 async def main():
     dp.startup.register(start_bot)
@@ -70,11 +69,7 @@ async def main():
     
     finally:
         await bot.session.close()
-        
-        # Give handlers time to finish
         await asyncio.sleep(1)
-        
-        # Now dispose the engine
         await engine.dispose()
 
 if __name__ == "__main__":

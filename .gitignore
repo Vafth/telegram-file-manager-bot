@@ -1,14 +1,8 @@
-# Python-generated files
 __pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+*_old.py
 .env
 database.db
-general.txt
-requirements.txt
+*.txt
 .python-version
 
 .venv
