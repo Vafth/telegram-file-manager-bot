@@ -12,7 +12,7 @@ async def get_overlap_files_number(
                 folder_id:        int,
                 target_folder_id: int,        
             ) -> int:
-    
+    print(f"Starting to grabbing the overlaping files")
     overlap_query = await session.execute(
         select(FileFolder.file_id)
         .where(FileFolder.folder_id == folder_id)
@@ -27,7 +27,7 @@ async def get_overlap_files_number(
         )
     )
     overlaps = overlap_query.scalars().all()
-    
+    print(f"Overlaping files: {overlaps}")
     return len(overlaps)
 
 async def get_folder_by_chat_id_and_path(session: AsyncSession, chat_id: int, path: str) -> Optional[Folder]:

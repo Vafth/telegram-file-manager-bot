@@ -120,15 +120,14 @@ async def create_file(session):
             mock_file_type:  int = 1, #gif
             file_name:       str = "test_file",
             user_id:         int = 1,
-            cur_folder_id:   int = 1
+            cur_folder_id:   int = 1,
         ):
-        
+
         new_file = File(
             tg_id     = mock_file_tg_id,
             file_type = mock_file_type,
             backup_id = mock_backup_id,
         )
-
 
         await create_new_file(    
             session   = session, 
@@ -139,6 +138,26 @@ async def create_file(session):
         )
 
     return _create_file
+
+@pytest.fixture
+async def create_file_link(session):
+    async def _create_file_link(        
+            file_name:       str = "test_file",
+            file_id:         int = 1234567890,
+            user_id:         int = 1,
+            cur_folder_id:   int = 1,
+        ):
+
+        await create_new_file(    
+            session   = session, 
+            file_id   = file_id,
+            user_id   = user_id,
+            file_name = file_name, 
+            folder_id = cur_folder_id
+        )
+
+    return _create_file_link
+
 
 @pytest.fixture
 async def user_created(create_user):

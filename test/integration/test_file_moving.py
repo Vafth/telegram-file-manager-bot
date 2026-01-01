@@ -2,11 +2,12 @@ from sqlmodel import select
 from sqlalchemy.orm import selectinload
 from app.db import *
 from app.db.db_interaction.update import set_user_folder, try_move_file_folder_links
-from app.db.db_interaction.check import check_file_by_id
+from app.db.db_interaction.check import check_file_by_id, check_user_file_and_file_folder_link
+from app.db.db_interaction.create import create_new_file
 import pytest
 
 @pytest.mark.asyncio
-async def test_file_moving(session, two_files_in_root_created, create_folder):
+async def test_proper_file_moving(session, two_files_in_root_created, create_folder):
     file_name      = two_files_in_root_created["file_name"]
     cur_folder_id  = two_files_in_root_created["folder_id"]
     user_chat_id   = 1
@@ -77,3 +78,54 @@ async def test_file_moving(session, two_files_in_root_created, create_folder):
     assert root_folder.file_folders == []
     assert new_folder.file_folders[0].file_name == file_name
     assert moved_count == 2
+
+@pytest.mark.asyncio
+async def test_file_moving_then_overlap_exist(session, create_file, two_files_in_root_created, create_folder):
+    file_name      = two_files_in_root_created["file_name"]
+    root_folder_id  = two_files_in_root_created["folder_id"]
+    user_chat_id   = 1
+
+    # New folder creating
+    cur_folder_path = "/"
+    new_folder_name = "test1"
+    new_folder_path = f"{cur_folder_path}{new_folder_name}/"
+
+    new_folder_id = await create_folder(
+        user_id         = 1,
+        par_folder_id   = root_folder_id,
+        new_folder_name = new_folder_name,
+        new_folder_path = new_folder_path
+    )
+    # File creating
+    mock_file_tg_id = "1234567890"
+    mock_file_shortcut = "gif"
+
+    is_exist, cur_folder_id, cur_user_id, file_id = await check_user_file_and_file_folder_link(
+            session       = session,
+            chat_id       = user_chat_id,
+            file_tg_id    = mock_file_tg_id,
+            file_shortcut = mock_file_shortcut
+        )
+
+    assert is_exist == True
+    assert cur_user_id is not None
+    assert file_id == 1
+
+    await create_new_file(
+        session   = session, 
+        new_file  = None,
+        file_id   = file_id,
+        user_id   = 1,
+        file_name = file_name, 
+        folder_id = new_folder_id
+    )
+
+    # Moving files from the root folder to the new one part two
+    moved_count = await try_move_file_folder_links(
+        session          = session,
+        folder_id        = root_folder_id,
+        target_folder_id = new_folder_id,
+    )
+    assert moved_count < 0
+
+#---

@@ -67,10 +67,10 @@ async def handle_delete_media(callback: CallbackQuery, callback_data: list[int])
             folder_id = folder_id
         )
         
-        if not is_link:
-            await callback.answer("File not found", show_alert=True)
-            return
-        
+    if not is_link:
+        await callback.answer("File not found", show_alert=True)
+        return
+    
     await callback.answer("File deleted successfuly.", show_alert=True)
 
 @callback_router.callback_query(CallbackDataParser(action="d"))

@@ -55,7 +55,7 @@ async def handle_rename_folder(message: Message, state: State):
     path_parts = old_path.rstrip('/').split('/')
     path_parts[-1] = new_name
     new_path = "/".join(path_parts) + '/'
-
+    
     print(
         f"Old path : {old_path}\n"
         f"New path : {new_path}"

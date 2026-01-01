@@ -46,7 +46,6 @@ async def try_move_file_folder_links(
                 target_folder_id: int,
             ) -> int:
 
-
     overlap_count = await get_overlap_files_number(
                 session          = session,
                 folder_id        = folder_id,
