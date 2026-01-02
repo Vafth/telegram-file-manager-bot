@@ -8,7 +8,7 @@ import pytest
 async def test_file_not_exist_existing_check(create_user, session):
 
     fake_file_tg_id = "1234567890"
-    file_shortcut   = ".gif"
+    file_shortcut   = "gif"
     user_name       = "test_user"
     user_chat_id    = 1
     

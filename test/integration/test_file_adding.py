@@ -410,3 +410,196 @@ async def test_two_same_files_adding_with_same_names_in_dif_folders(create_user,
     first_link, second_link = file_folder_links
     assert first_link.file == second_link.file == file
 
+
+@pytest.mark.asyncio
+async def test_two_dif_files_adding_in_dif_users_root(two_user_created, create_file, create_media_type, session):
+    user_chat_id        = two_user_created["first_userchat_id"]
+    second_user_chat_id = two_user_created["second_userchat_id"]
+    
+    root_folder_id        = 1
+    second_root_folder_id = 2
+
+    # Create a media type
+    await create_media_type(
+        mediatype_id  = 1,
+        short_version = "gif",
+        tg_version    = "animation"
+    )
+
+    # File creating
+    mock_backup_id  = 12345
+    mock_file_tg_id = "1234567890"
+    mock_file_type  = 1 #gif
+    file_name       = "test_file"
+    cur_folder_id   = root_folder_id
+
+    await create_file(        
+            mock_backup_id  = mock_backup_id,
+            mock_file_tg_id = mock_file_tg_id,
+            mock_file_type  = mock_file_type,
+            file_name       = file_name,
+            user_id         = 1,
+            cur_folder_id   = cur_folder_id
+        )
+    
+    # File creating
+    mock_backup_id  = 123456
+    mock_file_tg_id = "1234567891"
+    mock_file_type  = 1 #gif
+    file_name       = "test_file"
+    cur_folder_id   = second_root_folder_id
+
+    await create_file(        
+            mock_backup_id  = mock_backup_id,
+            mock_file_tg_id = mock_file_tg_id,
+            mock_file_type  = mock_file_type,
+            file_name       = file_name,
+            user_id         = 2,
+            cur_folder_id   = cur_folder_id
+        )
+    
+#---
+
+    file_result = await session.execute(
+        select(File)
+        .options(selectinload(File.file_folders))
+        .options(selectinload(File.file_users))
+    )
+    files = file_result.scalars().all()
+    
+    users_result = await session.execute(
+        select(User)
+    )
+    users = users_result.scalars().all()
+
+    file_folder_result = await session.execute(
+        select(FileFolder)
+        .options(selectinload(FileFolder.folder))
+        .options(selectinload(FileFolder.file))
+        )
+    file_folder_links = file_folder_result.scalars().all()
+
+    file_user_result = await session.execute(
+        select(FileUser)
+        .options(selectinload(FileUser.file))
+        .options(selectinload(FileUser.user))
+        )
+    file_user_links = file_user_result.scalars().all()
+    
+
+    assert files is not None
+    assert len(file_folder_links) == 2 
+    
+    first_link, second_link = file_folder_links
+    first_user_link, second_user_link = file_user_links
+
+    assert first_link.file == files[0]
+    assert second_link.file == files[1]
+    assert first_link.folder.id == users[0].cur_folder_id
+    assert second_link.folder.id == users[1].cur_folder_id
+    
+    assert first_user_link.file == files[0]
+    assert second_user_link.file == files[1]
+    assert first_user_link.user.chat_id == user_chat_id
+    assert second_user_link.user.chat_id == second_user_chat_id
+
+@pytest.mark.asyncio
+async def test_two_same_files_adding_in_dif_users_root(two_user_created, create_file, create_file_link, create_media_type, session):
+    user_chat_id        = two_user_created["first_userchat_id"]
+    second_user_chat_id = two_user_created["second_userchat_id"]
+    
+    root_folder_id        = 1
+    second_root_folder_id = 2
+
+    # Create a media type
+    await create_media_type(
+        mediatype_id  = 1,
+        short_version = "gif",
+        tg_version    = "animation"
+    )
+
+    # File creating
+    mock_backup_id  = 12345
+    mock_file_tg_id = "1234567890"
+    mock_file_type  = 1 #gif
+    file_name       = "test_file"
+    cur_folder_id   = root_folder_id
+
+    await create_file(        
+            mock_backup_id  = mock_backup_id,
+            mock_file_tg_id = mock_file_tg_id,
+            mock_file_type  = mock_file_type,
+            file_name       = file_name,
+            user_id         = 1,
+            cur_folder_id   = cur_folder_id
+        )
+    
+    # File creating
+    mock_file_shortcut = "gif"
+    cur_folder_id   = second_root_folder_id
+
+    is_exist, cur_folder_id, cur_user_id, file_id = await check_user_file_and_file_folder_link(
+        session       = session,
+        chat_id       = user_chat_id,
+        file_tg_id    = mock_file_tg_id,
+        file_shortcut = mock_file_shortcut
+    )
+
+    assert is_exist == True
+    
+    assert cur_user_id == True
+
+    assert file_id is not None
+
+    await create_file_link(        
+            file_name = "test_file",
+            file_id   = file_id,
+            user_id   = 2,
+            cur_folder_id  = second_root_folder_id,
+
+        )
+
+#---
+
+    file_result = await session.execute(
+        select(File)
+        .options(selectinload(File.file_folders))
+        .options(selectinload(File.file_users))
+    )
+    files = file_result.scalars().one_or_none()
+    
+    users_result = await session.execute(
+        select(User)
+    )
+    users = users_result.scalars().all()
+
+    file_folder_result = await session.execute(
+        select(FileFolder)
+        .options(selectinload(FileFolder.folder))
+        .options(selectinload(FileFolder.file))
+        )
+    file_folder_links = file_folder_result.scalars().all()
+
+    file_user_result = await session.execute(
+        select(FileUser)
+        .options(selectinload(FileUser.file))
+        .options(selectinload(FileUser.user))
+        )
+    file_user_links = file_user_result.scalars().all()
+    
+
+    assert files is not None
+    assert len(file_folder_links) == 2 
+    
+    first_link, second_link = file_folder_links
+    first_user_link, second_user_link = file_user_links
+    
+    assert first_link.file == second_link.file
+
+    assert first_link.folder.id == users[0].cur_folder_id
+    assert second_link.folder.id == users[1].cur_folder_id
+    
+    assert first_user_link.file == second_user_link.file
+
+    assert first_user_link.user.chat_id == user_chat_id
+    assert second_user_link.user.chat_id == second_user_chat_id

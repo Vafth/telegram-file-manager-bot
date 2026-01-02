@@ -22,7 +22,7 @@ async def delete_file_folder_link(
     
     return result is not None 
 
-async def delete_folder_by_id(session: AsyncSession, folder_id: int):    
+async def   delete_folder_by_id(session: AsyncSession, folder_id: int):    
     await session.execute(
         delete(Folder)
         .where(Folder.id == folder_id)

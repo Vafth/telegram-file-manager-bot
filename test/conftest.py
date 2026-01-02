@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 import pytest
 
 from app.db.db_interaction.create import try_create_user_file_and_file_folder_link, create_new_folder, create_new_file
+from app.db.db_interaction.update import set_user_folder
+
 from app.db.models import Folder, MediaType, File
 
 @pytest.fixture(scope="session")
@@ -170,6 +172,29 @@ async def user_created(create_user):
     )
 
 @pytest.fixture
+async def two_user_created(create_user):
+    user_name    = "test_user"
+    user_chat_id = 1
+
+    await create_user(
+        user_chat_id = user_chat_id, 
+        user_name    = user_name
+    )
+
+    await create_user(
+        user_chat_id = user_chat_id + 1, 
+        user_name    = user_name[::-1]
+    )
+
+    return {
+        "first_username" :    user_name,
+        "second_username":    user_name[::-1],
+        "first_userchat_id":  user_chat_id,
+        "second_userchat_id": user_chat_id+1,
+    }
+
+
+@pytest.fixture
 async def media_type_created(create_media_type):
     mediatype_id  = 1
     short_version = "gif"
@@ -241,6 +266,41 @@ async def two_files_in_root_created(media_type_created, user_created, create_fil
         "user_id":        user_id
     }
 
+@pytest.fixture
+async def new_folder_with_file_created(user_created, media_type_created, folder_created, create_file, session):
+    new_folder_id = folder_created
+    
+    # Files creating
+    mock_backup_id  = 12345
+    mock_file_tg_id = "1234567890"
+    mock_file_type  = media_type_created
+    file_name       = "test_file"
+    user_id         = 1
+
+    await create_file(        
+            mock_backup_id  = mock_backup_id,
+            mock_file_tg_id = mock_file_tg_id,
+            mock_file_type  = mock_file_type,
+            file_name       = file_name,
+            user_id         = user_id,
+            cur_folder_id   = new_folder_id
+        )
+    
+    # Update User's current folder
+    await set_user_folder(
+        session   = session, 
+        chat_id   = 1, 
+        folder_id = new_folder_id
+    )
+    
+    return {
+        "mock_backup_id" : mock_backup_id,
+        "mock_file_tg_id": mock_file_tg_id,
+        "mock_file_type":  mock_file_type,
+        "file_name":       file_name,
+        "tg_id":          mock_file_tg_id,
+        "user_id":        user_id
+    }
     
     
     

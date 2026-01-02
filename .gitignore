@@ -1,5 +1,6 @@
 __pycache__/
 *_old.py
+external_router.py
 .env
 database.db
 *.txt
