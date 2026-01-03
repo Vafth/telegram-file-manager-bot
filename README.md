@@ -105,7 +105,7 @@ cp .env.example .env
 Edit `.env` and configure for **admin setup mode**:
 ```env
 ADMIN_SETUP=true  # Enable admin mode for initial setup
-BOT_TOKEN=your_bot_token_here
+BOT_TOKEN='your_bot_token_here'
 # Leave other variables empty for now
 ```
 
@@ -173,7 +173,8 @@ python main.py
 - `/fe` - Open File Explorer (main interface)
 - `/rn` - Rename current folder
 - `/mv` - Move files to another folder
-- `/rm` - Delete folder (files move to parent)
+- `/rm` - Delete folder (all files move to parent)
+- `/help` - User Guide
 
 ### File Explorer (`/fe`)
 
