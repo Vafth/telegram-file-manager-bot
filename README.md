@@ -11,10 +11,6 @@ A Telegram bot that transforms your chats into an organized file management syst
 - **Auto Backup** - All files automatically backed up to your private group with organized topics
 - **File Management** - Rename folders, move files, organize your media library
 
-## Demo
-
-_[Add screenshots or GIF demo here - showing file explorer, inline search, folder navigation]_
-
 ## Quick Start
 
 1. [Create a Telegram Bot](#1-create-telegram-bot)
