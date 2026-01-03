@@ -1,8 +1,7 @@
 from sqlmodel import select
 from sqlalchemy.orm import selectinload
 from app.db import *
-from app.db.db_interaction.check import check_user_file_and_file_folder_link, check_cur_folder_by_chat_id, check_folder_by_path_and_chat_id
-from app.db.db_interaction.update import set_user_folder, move_file_folder_links_up
+from app.db.db_interaction.check import check_user_file_and_file_folder_link
 from app.db.db_interaction.delete import delete_file_folder_link
 
 import pytest

@@ -1,9 +1,10 @@
 __pycache__/
+.pytest_cache/
 *_old.py
 external_router.py
 .env
 database.db
-*.txt
+general.txt
 .python-version
 
 .venv

@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional
 
 from sqlmodel import select, and_
 from ..models import User, Folder, File, FileFolder

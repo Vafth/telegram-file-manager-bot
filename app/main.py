@@ -12,17 +12,18 @@ from .db.db import engine, create_db_and_tables
 
 load_dotenv()
 TOKEN           = os.getenv("BOT_TOKEN")
+is_ADMIN_SETUP  = os.getenv("ADMIN_SETUP")
 ADMINS          = json.loads(os.getenv("ADMIN_LIST"))
 GROUPS          = json.loads(os.getenv("GROUP_LIST"))
 ALLOWED_UPDATES = json.loads(os.getenv("ALLOWED_UPDATES"))
 
-bot = Bot(token=TOKEN)
+bot = Bot(token = TOKEN)
 bot.my_admin_list = ADMINS
 bot.my_group_list = GROUPS
 
 async def start_bot(bot: Bot):
-    if bot.my_admin_list:
-        await bot.send_message(bot.my_admin_list[0], "Bot has awakened.")
+    if bot.my_admin_list and is_ADMIN_SETUP:
+        await bot.send_message(bot.my_admin_list[0], "Start")
     
     commands = [
         BotCommand(command = "start", description = "Start Command"),
@@ -30,36 +31,38 @@ async def start_bot(bot: Bot):
         BotCommand(command = "fe",    description = "Open File Explorer"),
         BotCommand(command = "rm",    description = "Remove current folder"),
         BotCommand(command = "rn",    description = "Rename current folder"),
-        BotCommand(command = "mv",    description = "Move all files to folder"),
+        BotCommand(command = "mv",    description = "Move all files to another folder"),
     ]
 
-    await bot.delete_my_commands(scope = BotCommandScopeChat(chat_id = bot.my_admin_list[0]))
-    await bot.set_my_commands(commands, scope = BotCommandScopeChat(chat_id = bot.my_admin_list[0]))
+    for chat_id in bot.my_admin_list:
+        await bot.delete_my_commands(scope = BotCommandScopeChat(chat_id = chat_id))
+        await bot.set_my_commands(commands, scope = BotCommandScopeChat(chat_id = chat_id))
     
-    print("Bot started")
     await create_db_and_tables()
 
 async def stop_bot(bot: Bot):
-    if bot.my_admin_list:
-        for admin in bot.my_admin_list:
-            admin = int(admin)
-            await bot.send_message(admin, "Bot has fallen asleep.")
-
-    await engine.dispose() 
+    if bot.my_admin_list and is_ADMIN_SETUP:
+        await bot.send_message(bot.my_admin_list[0], "Stop")
+    
+    await asyncio.sleep(0.5)
+    await engine.dispose()
 
 dp = Dispatcher()
-dp.include_router(private_router)
-dp.include_router(group_router)
-dp.include_router(inline_router)
-dp.include_router(callback_router)
-dp.include_router(add_folder_router)
-dp.include_router(add_file_router)
-dp.include_router(remove_folder_router)
-dp.include_router(rename_folder_router)
-dp.include_router(move_router)
-dp.include_router(admin_router)
+if is_ADMIN_SETUP:
+    dp.include_router(admin_router)
+else:
+    dp.include_router(private_router)
+    dp.include_router(group_router)
+    dp.include_router(inline_router)
+    dp.include_router(callback_router)
+    dp.include_router(add_folder_router)
+    dp.include_router(add_file_router)
+    dp.include_router(remove_folder_router)
+    dp.include_router(rename_folder_router)
+    dp.include_router(move_router)
 
 async def main():
+    
     dp.startup.register(start_bot)
     dp.shutdown.register(stop_bot)
     await bot.delete_webhook(drop_pending_updates=True)
@@ -69,12 +72,10 @@ async def main():
     
     finally:
         await bot.session.close()
-        await asyncio.sleep(1)
-        await engine.dispose()
+        await asyncio.sleep(0.5)
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("Stopping")    
-    
+        print("Stop")

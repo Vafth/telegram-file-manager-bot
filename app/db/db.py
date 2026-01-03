@@ -1,4 +1,4 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from contextlib import asynccontextmanager
 from sqlmodel import SQLModel, select
 from dotenv import load_dotenv
@@ -18,7 +18,7 @@ MEDIA_CONFIG = [
 
 sql_url = os.getenv("DB_URL")
 
-engine = create_async_engine(sql_url, echo=True)
+engine = create_async_engine(sql_url, echo=False)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
 @asynccontextmanager

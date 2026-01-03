@@ -1,7 +1,7 @@
 [project]
-name = "shiz"
+name = "telegram-file-manager-bot"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Telegram bot that transforms your chats into an organized file management system with hierarchical folders and inline mode availability."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
