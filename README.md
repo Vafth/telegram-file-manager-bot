@@ -104,7 +104,7 @@ cp .env.example .env
 
 Edit `.env` and configure for **admin setup mode**:
 ```env
-ADMIN_SETUP=True  # Enable admin mode for initial setup
+ADMIN_SETUP=true  # Enable admin mode for initial setup
 BOT_TOKEN=your_bot_token_here
 # Leave other variables empty for now
 ```
@@ -120,7 +120,7 @@ uv run python main.py
 python main.py
 ```
 
-The bot will automatically run in **admin mode** when `ADMIN_SETUP=True`, giving you access to ID collection commands.
+The bot will automatically run in **admin mode** when `ADMIN_SETUP=true`, giving you access to ID collection commands.
 
 **Get your Chat ID:**
 1. Send `/get_my_chat_id` to your bot in private chat
@@ -133,7 +133,7 @@ The bot will automatically run in **admin mode** when `ADMIN_SETUP=True`, giving
 
 **Update `.env` file:**
 ```env
-ADMIN_SETUP=False  # ← Disable admin mode after setup
+ADMIN_SETUP=false  # ← Disable admin mode after setup
 
 # Telegram Bot section
 BOT_TOKEN       = 'your_bot_token_here' 

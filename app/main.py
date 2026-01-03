@@ -13,7 +13,7 @@ from .db.db import engine, create_db_and_tables
 load_dotenv()
 
 TOKEN           = os.getenv("BOT_TOKEN")
-is_ADMIN_SETUP  = os.getenv("ADMIN_SETUP")
+is_ADMIN_SETUP  = json.loads(os.getenv("ADMIN_SETUP"))
 ALLOWED_UPDATES = json.loads(os.getenv("ALLOWED_UPDATES"))
 ADMINS          = json.loads(os.getenv("ADMIN_LIST"))
 GROUPS          = json.loads(os.getenv("GROUP_LIST"))

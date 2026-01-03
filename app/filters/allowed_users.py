@@ -7,7 +7,7 @@ class userIsAllowed(Filter):
         pass
     async def __call__(self, message: Message, bot: Bot) -> bool:
         print(
-            f"Try to write to the Bot: {message.chat.id}"
+            f"Request to the Bot from: {message.chat.id}"
             )
         return message.from_user.id in bot.my_admin_list    
 
