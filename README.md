@@ -17,7 +17,7 @@ A Telegram bot that transforms your chats into an organized file management syst
 2. [Set up Backup Group](#2-create-backup-group)
 3. [Configure Environment](#3-installation--configuration)
 4. [Get Required IDs](#4-get-chat-and-group-ids)
-5. [Start Using](#running-the-bot)
+5. [Start Using](#user-guide)
 
 ---
 
@@ -132,22 +132,21 @@ The bot will automatically run in **admin mode** when `ADMIN_SETUP=true`, giving
 ADMIN_SETUP=false  # ← Disable admin mode after setup
 
 # Telegram Bot section
-BOT_TOKEN       = 'your_bot_token_here' 
-...
+BOT_TOKEN='your_bot_token_here'
 
 # Telegram Users section
-ADMIN_LIST      = '[your_chat_id_here]'
+ADMIN_LIST='[your_chat_id_here]'
 
 # Telegram Group section
-GROUP_LIST      = '[your_group_id_here]'
+GROUP_LIST='[your_group_id_here]'
 
 # Thread IDs for each media type
-THREAD_DOCUMENT = 1
-THREAD_IMAGE    = 2
-THREAD_VIDEO    = 3
-THREAD_AUDIO    = 4
-THREAD_STICKER  = 5
-THREAD_GIF      = 6
+THREAD_DOCUMENT=1
+THREAD_IMAGE=2
+THREAD_VIDEO=3
+THREAD_AUDIO=4
+THREAD_STICKER=5
+THREAD_GIF=6
 ```
 
 **Restart the bot in normal mode:**
@@ -159,6 +158,8 @@ uv run python main.py
 python main.py
 ```
 
+The bot will now run with all features enabled! 🎉
+
 ---
 
 ## User Guide
@@ -166,11 +167,11 @@ python main.py
 ### Basic Commands
 
 - `/start` - Initialize your file system and get started
+- `/help` - Display user guide
 - `/fe` - Open File Explorer (main interface)
 - `/rn` - Rename current folder
 - `/mv` - Move files to another folder
-- `/rm` - Delete folder (all files move to parent)
-- `/help` - User Guide
+- `/rm` - Delete folder (files move to parent)
 
 ### File Explorer (`/fe`)
 
@@ -186,7 +187,7 @@ The file explorer shows your current location and available actions:
 1. Navigate to desired folder using `/fe`
 2. Send any file to the bot
 3. Bot asks for a name - reply with the filename
-4. File is saved and automatically backed up file into your private group
+4. File is saved and automatically backed up to your private group
 
 ### Inline Mode Search
 
@@ -227,7 +228,7 @@ Shows all `.gif` files in `/memes/` folder
 
 - **[aiogram 3.x](https://github.com/aiogram/aiogram)** - Telegram Bot framework
 - **[SQLModel](https://github.com/fastapi/sqlmodel)** - Async ORM
-- **SQLite** - As a default database
+- **SQLite** - Default database
 - **Python 3.11+** - Core language
 
 Full dependencies in `requirements.txt` and `pyproject.toml`
@@ -236,9 +237,9 @@ Full dependencies in `requirements.txt` and `pyproject.toml`
 
 ## Roadmap
 
-- [ ] **Bulk file operations**
+- [ ] **Bulk file operations** - Select and manage multiple files at once
 - [ ] **Enhanced folder search** - Show available file types in folder suggestions during inline search
-- [ ] **User space management** - Ability to view and permanently operate at all saved files globally (currently, files removed from folders remain in storage and are only accessible via inline **Search by file type**)
+- [ ] **User space management** - View and permanently delete all saved files globally (currently, files removed from folders remain in storage, accessible only via inline **Search by file type**)
 - [ ] **Advanced search filters:**
   - Search by file name
   - Recursive **Search by file type** within a folder and all its subfolders
@@ -246,10 +247,10 @@ Full dependencies in `requirements.txt` and `pyproject.toml`
   - Folder owners can invite specific users
   - Owners can set granular permissions (view, add, remove, move files)
   - Collaborative file management between users
-- [ ] **External access tools**
+- [ ] **External access tools** - Export/sync files to external storage
 
 ---
 
-## 📄 License
+## License
 
 MIT License - see [LICENSE](LICENSE) file for details
