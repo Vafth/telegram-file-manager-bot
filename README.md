@@ -65,6 +65,7 @@ cd telegram-file-manager-bot
 
 <details>
 <summary><b>Using uv</b></summary>
+
 ```bash
 # Install uv if you don't have it yet
 pip install uv
@@ -77,6 +78,7 @@ uv sync
 
 <details>
 <summary><b>Using pip</b></summary>
+
 ```bash
 # Create virtual environment
 python -m venv venv
