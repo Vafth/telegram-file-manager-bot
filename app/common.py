@@ -1,5 +1,5 @@
 from typing import Optional
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, BotCommand
 from sqlmodel import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -98,3 +98,12 @@ help_guide = """
   <b>Document:</b>  <code>.doc</code>
 
 """
+
+commands = [
+        BotCommand(command = "start", description = "Start Command"),
+        BotCommand(command = "help",  description = "User Guide"),
+        BotCommand(command = "fe",    description = "Open File Explorer"),
+        BotCommand(command = "rm",    description = "Remove current folder"),
+        BotCommand(command = "rn",    description = "Rename current folder"),
+        BotCommand(command = "mv",    description = "Move all files to another folder"),
+    ]

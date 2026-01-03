@@ -2,46 +2,44 @@ import os
 import json
 import asyncio
 from dotenv import load_dotenv
+from .common import commands
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import BotCommand, BotCommandScopeChat
+from aiogram.types import BotCommandScopeChat
 
 from .routers import *
 
 from .db.db import engine, create_db_and_tables
-
 load_dotenv()
+
 TOKEN           = os.getenv("BOT_TOKEN")
 is_ADMIN_SETUP  = os.getenv("ADMIN_SETUP")
+ALLOWED_UPDATES = json.loads(os.getenv("ALLOWED_UPDATES"))
 ADMINS          = json.loads(os.getenv("ADMIN_LIST"))
 GROUPS          = json.loads(os.getenv("GROUP_LIST"))
-ALLOWED_UPDATES = json.loads(os.getenv("ALLOWED_UPDATES"))
-
+    
 bot = Bot(token = TOKEN)
-bot.my_admin_list = ADMINS
-bot.my_group_list = GROUPS
+bot.my_admin_list = None
+bot.my_group_list = None
+
+if ADMINS != []:
+    bot.my_admin_list = ADMINS
+
+if GROUPS != []:
+    bot.my_group_list = GROUPS
 
 async def start_bot(bot: Bot):
-    if bot.my_admin_list and is_ADMIN_SETUP:
+    if bot.my_admin_list is not None and is_ADMIN_SETUP:
         await bot.send_message(bot.my_admin_list[0], "Start")
-    
-    commands = [
-        BotCommand(command = "start", description = "Start Command"),
-        BotCommand(command = "help",  description = "User Guide"),
-        BotCommand(command = "fe",    description = "Open File Explorer"),
-        BotCommand(command = "rm",    description = "Remove current folder"),
-        BotCommand(command = "rn",    description = "Rename current folder"),
-        BotCommand(command = "mv",    description = "Move all files to another folder"),
-    ]
 
-    for chat_id in bot.my_admin_list:
-        await bot.delete_my_commands(scope = BotCommandScopeChat(chat_id = chat_id))
-        await bot.set_my_commands(commands, scope = BotCommandScopeChat(chat_id = chat_id))
+        for chat_id in bot.my_admin_list:
+            await bot.delete_my_commands(scope = BotCommandScopeChat(chat_id = chat_id))
+            await bot.set_my_commands(commands, scope = BotCommandScopeChat(chat_id = chat_id))
     
     await create_db_and_tables()
 
 async def stop_bot(bot: Bot):
-    if bot.my_admin_list and is_ADMIN_SETUP:
+    if bot.my_admin_list is not None and is_ADMIN_SETUP:
         await bot.send_message(bot.my_admin_list[0], "Stop")
     
     await asyncio.sleep(0.5)
