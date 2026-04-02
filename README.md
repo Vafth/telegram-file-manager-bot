@@ -1,6 +1,6 @@
 # Telegram File Manager Bot
 
-A Telegram bot that transforms your chats into an organized file management system with hierarchical folders and inline mode availability.
+A Telegram bot that enables a hierarchical file management system directly within your chats, featuring full inline mode support.
 
 ## Key Features
 
